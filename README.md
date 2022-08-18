@@ -1,5 +1,6 @@
 # TwoResNet
 
+![Alt text](./figs/tworesnet.svg)
 This is [PyTorch lightning](https://www.pytorchlightning.ai) implementation of Two-Level resolution Neural Network (TwoResNet) for traffic forecasting.
 
 ## 1. Installing dependencies
@@ -70,22 +71,24 @@ python run.py --config=data/model/tworesnet.yaml --test --dataset=la
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 2.23, RMSE: 3.87, MAPE: 5.40
-Horizon 2 (10 min) - MAE: 2.48, RMSE: 4.60, MAPE: 6.21
-Horizon 3 (15 min) - MAE: 2.65, RMSE: 5.10, MAPE: 6.82
-Horizon 4 (20 min) - MAE: 2.79, RMSE: 5.49, MAPE: 7.31
-Horizon 5 (25 min) - MAE: 2.90, RMSE: 5.81, MAPE: 7.74
-Horizon 6 (30 min) - MAE: 3.00, RMSE: 6.09, MAPE: 8.14
-Horizon 7 (35 min) - MAE: 3.09, RMSE: 6.33, MAPE: 8.46
-Horizon 8 (40 min) - MAE: 3.16, RMSE: 6.54, MAPE: 8.76
-Horizon 9 (45 min) - MAE: 3.24, RMSE: 6.73, MAPE: 9.03
-Horizon 10 (50 min) - MAE: 3.30, RMSE: 6.89, MAPE: 9.26
-Horizon 11 (55 min) - MAE: 3.36, RMSE: 7.04, MAPE: 9.48
-Horizon 12 (60 min) - MAE: 3.42, RMSE: 7.18, MAPE: 9.68
-Aggregation - MAE: 2.97, RMSE: 6.05, MAPE: 8.02
+Horizon 1 (5 min) - MAE: 2.26, RMSE: 3.90, MAPE: 5.50
+Horizon 2 (10 min) - MAE: 2.51, RMSE: 4.62, MAPE: 6.26
+Horizon 3 (15 min) - MAE: 2.67, RMSE: 5.10, MAPE: 6.84
+Horizon 4 (20 min) - MAE: 2.81, RMSE: 5.49, MAPE: 7.30
+Horizon 5 (25 min) - MAE: 2.92, RMSE: 5.81, MAPE: 7.72
+Horizon 6 (30 min) - MAE: 3.04, RMSE: 6.09, MAPE: 8.11
+Horizon 7 (35 min) - MAE: 3.12, RMSE: 6.33, MAPE: 8.41
+Horizon 8 (40 min) - MAE: 3.21, RMSE: 6.56, MAPE: 8.71
+Horizon 9 (45 min) - MAE: 3.29, RMSE: 6.75, MAPE: 8.97
+Horizon 10 (50 min) - MAE: 3.35, RMSE: 6.91, MAPE: 9.18
+Horizon 11 (55 min) - MAE: 3.41, RMSE: 7.07, MAPE: 9.40
+Horizon 12 (60 min) - MAE: 3.47, RMSE: 7.21, MAPE: 9.61
+Aggregation - MAE: 3.01, RMSE: 6.07, MAPE: 8.00
 ```
 
-### 3.2. PEMS-BAY
+### 3. 3.2. PEMS-BAY
+
+### 3.1. METR-LA
 
 ```bash
 python run.py --config=data/model/tworesnet.yaml --test --dataset=bay

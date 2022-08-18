@@ -51,15 +51,20 @@ HPARAMS:
     dow: true
     horizon: 12
     time_feat_mode: sinusoidal
-  
   HIGH_RES_NET:
+    dropout: 0
     max_diffusion_step: 2
     num_rnn_layers: 2
-    output_dim: 1
     num_rnn_units: 64
+    
+    output_dim: 1
     seq_len: 12
+  LOW_RES_NET:
     dropout: 0
-  
+    num_rnn_layers: 1
+    num_rnn_units: 64
+    output_dim: 1
+    seq_len: 12
   OPTIMIZER:
     adam:
       eps: 0.001
@@ -68,21 +73,11 @@ HPARAMS:
     multisteplr:
       gamma: 0.1
       reduce_step_factor: 2
-
-  
-  LOW_RES_NET:
-    num_rnn_layers: 1
-    output_dim: 1
-    num_rnn_units: 64
-    seq_len: 12
-    dropout: 0
-  
   TEACHER_FORCING:
     half_life_epoch: 13.33
-    slope_at_half: -0.1425525
-    milestone_start_p: 0.03
     high_resolution_model: on
     low_resolution_model: off
-  
+    milestone_start_p: 0.03
+    slope_at_half: -0.1425525
   TRAINER:
     gradient_clip_val: 5

@@ -27,17 +27,7 @@ hparams:
     low_resol_loss_weight: 1
     multisteplr:
       gamma: 0.1
-      milestones:
-      - 20
-      - 30
-      - 40
-      - 50
       reduce_step_factor: 2
-    reduce_lr_on_plateau:
-      cooldown: 0
-      factor: 0.1
-      min_lr: 1.0e-06
-      patience: 5
   TEACHER_FORCING:
     half_life_epoch: 13.33
     high_resolution_model: true
