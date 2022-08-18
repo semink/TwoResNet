@@ -84,40 +84,26 @@ class GRU(nn.Module):
 class GCGRU(nn.Module):
     def __init__(self, in_dim, hid_dim, A, gcn_nlayers, dropout):
         super().__init__()
-        self.gcn1 = GCN(A, gcn_nlayers, in_dim, hid_dim, dropout)
-        self.gcn2 = GCN(A, gcn_nlayers, hid_dim, hid_dim, dropout)
-        self.gru = GRU(hid_dim, hid_dim, dropout)
+        self.linear_r = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
+        self.linear_z = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
+        self.linear_in = GCN(A, gcn_nlayers, in_dim, hid_dim, dropout)
+        self.linear_hn = GCN(A, gcn_nlayers, hid_dim, hid_dim, dropout)
 
-    def forward(self, htlm1, htm1):
+    def forward(self, inputs, htm1):
+        """Gated recurrent unit (GRU) with Graph Convolution.
+        :param inputs: (B, num_nodes * input_dim)
+        :param hx: (B, num_nodes * rnn_units)
 
-        htlm1 = self.gcn1(htlm1)
-        htm1 = self.gcn2(htm1)
-        ht = self.gru(htlm1, htm1)
+        :return
+        - Output: A `2-D` tensor with shape `(B, num_nodes * rnn_units)`.
+        """
+
+        concat_input = torch.cat([inputs, htm1], dim=-2)
+        r = torch.sigmoid(self.linear_r(concat_input))
+        z = torch.sigmoid(self.linear_z(concat_input))
+        n = torch.tanh(self.linear_in(inputs) + r * self.linear_hn(htm1))
+        ht = (1.0 - z) * n + z * htm1
         return ht
-
-# class GCGRU(nn.Module):
-#     def __init__(self, in_dim, hid_dim, A, gcn_nlayers, dropout):
-#         super().__init__()
-#         self.linear_r = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
-#         self.linear_z = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
-#         self.linear_in = GCN(A, gcn_nlayers, in_dim, hid_dim, dropout)
-#         self.linear_hn = GCN(A, gcn_nlayers, hid_dim, hid_dim, dropout)
-
-#     def forward(self, inputs, htm1):
-#         """Gated recurrent unit (GRU) with Graph Convolution.
-#         :param inputs: (B, num_nodes * input_dim)
-#         :param hx: (B, num_nodes * rnn_units)
-
-#         :return
-#         - Output: A `2-D` tensor with shape `(B, num_nodes * rnn_units)`.
-#         """
-
-#         concat_input = torch.cat([inputs, htm1], dim=-2)
-#         r = torch.sigmoid(self.linear_r(concat_input))
-#         z = torch.sigmoid(self.linear_z(concat_input))
-#         n = torch.tanh(self.linear_in(inputs) + r * self.linear_hn(htm1))
-#         ht = (1.0 - z) * n + z * htm1
-#         return ht
 
 
 class RNNCell(nn.Module):
@@ -168,25 +154,19 @@ class RNNDecoder(nn.Module):
         self.linear = linear
         self.horizon = horizon
 
-    def forward(self, y0, h0, dybar=None,  dybar_answer_sheet=None, answer_sheet=None, show_answer=lambda: False):
+    def forward(self, y0, h0, dybar=None):
         # teacher forcing should work only during training
-        if not self.training:
-            answer_sheet = None
         ht = h0
         ytm1 = y0
         yts = []
         for h in range(self.horizon):
-            teacher_forcing = show_answer()
-            if (dybar_answer_sheet is not None) and teacher_forcing:
-                ytm1 = ytm1 + dybar_answer_sheet[..., h, :, :]
-            elif dybar is not None:
+            if dybar is not None:
                 ytm1 = ytm1 + dybar[..., h, :, :]
             ht = self.rnn_cell(ytm1, ht)
             yt = self.linear(ht[-1])
             yts.append(yt)
             # if teacher tells the answer, use the answer instead of guessing it...
-            ytm1 = answer_sheet[..., h, :,
-                                :] if teacher_forcing and answer_sheet is not None else yt
+            ytm1 = yt
         return torch.stack(yts, -3)
 
 
@@ -209,13 +189,10 @@ class LowResNet(nn.Module):
         x = torch.einsum('...fk, kn-> ...fn', x, self.I.T.to(device))
         return x
 
-    def forward(self, x, answer_sheet=None, show_answer=lambda: False):
+    def forward(self, x):
         x_low = self.downscaling(x)
-        if answer_sheet is not None:
-            answer_sheet = self.downscaling(answer_sheet)
         z = self.encoder(x_low)
-        y_low = self.decoder(x_low[..., -1, [0], :], z,
-                             answer_sheet=answer_sheet, show_answer=show_answer)
+        y_low = self.decoder(x_low[..., -1, [0], :], z)
         ybar = self.upscaling(y_low)
         return ybar
 
@@ -227,10 +204,10 @@ class HighResNet(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def forward(self, x, dybar, answer_sheet=None, dybar_answer_sheet=None, show_answer=lambda: False):
+    def forward(self, x, dybar):
         z = self.encoder(x)
         y = self.decoder(y0=x[..., -1, [0], :], h0=z,
-                         dybar=dybar, dybar_answer_sheet=dybar_answer_sheet, answer_sheet=answer_sheet, show_answer=show_answer)
+                         dybar=dybar)
         return y
 
 
@@ -264,15 +241,10 @@ class TwoResNet(nn.Module):
     def coarse(self, x):
         return self.low_res_block.upscaling(self.low_res_block.downscaling(x))
 
-    def forward(self, x, answer_sheet=None, show_answer=dict(low=lambda: False, high=lambda: False)):
-        if not self.training:
-            show_answer = dict(low=lambda: False, high=lambda: False)
-        ybar = self.low_res_block(x, answer_sheet, show_answer['low'])
+    def forward(self, x):
+        ybar = self.low_res_block(x)
         last_input = x[..., -1, [0], :].unsqueeze(1)
         dybar = torch.diff(
             torch.cat([self.coarse(last_input), ybar], -3), dim=-3)
-        dybar_answer_sheet = torch.diff(
-            torch.cat([self.coarse(last_input), self.coarse(answer_sheet)], -3), dim=-3) if answer_sheet is not None else None
-        y = self.high_res_block(x, dybar, answer_sheet,
-                                dybar_answer_sheet, show_answer['high'])
+        y = self.high_res_block(x, dybar)
         return y, ybar

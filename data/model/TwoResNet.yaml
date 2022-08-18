@@ -3,13 +3,14 @@ NONPARAMS:
   LOG:
     save_dir: experiments
     log_graph: True
-    name: TwoResNet-paper-pure
+    name: TwoResNet-paper-dcrnn
 
   SUMMARY:
     max_depth: 4
 
   TRAINER:
-    gpus: [0] # set 0 (not [0]) if you don't have GPU
+    accelerator: gpu
+    devices: [0] 
     max_epochs: 50
 
   DATA:
@@ -22,7 +23,7 @@ NONPARAMS:
   TEST:
     checkpoint: 
       la: 
-        dir_path: path/to/checkpoint/
+        dir_path: experiments/la/TwoResNet-paper-pure/version_17/
         file_name: best.ckpt
       bay:
         dir_path: path/to/checkpoint/
@@ -64,25 +65,16 @@ HPARAMS:
     rnn_units: 64
     seq_len: 12
     dropout: 0
-  
-  TEACHER_FORCING:
-    mode:
-      LowResNet: off
-      HighResNet: on
-    probability:
-      half_life: 13.33 
-      reduce_rate: 0.1425525  # teacher forcing probability drops this rate (per epoch) at the half life epoch
     
 
   OPTIMIZER:
     adam:
-      lr: 0.003
+      lr: 3.0e-4
       weight_decay: 0
       eps: 1.0e-3
-    multisteplr:
-      milestone_start_p: 0.03 # when the teacher forcing probability drops this number, learning rate starts descreasing
-      milestone_steps: 5
-      lr_reduced_by: 0.3
+    reduce_lr_on_plateau:
+      factor: 0.3
+      patience: 5
     LowResNet_loss_weight: 1
   
   TRAINER:
