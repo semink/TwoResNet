@@ -84,25 +84,15 @@ class GRU(nn.Module):
 class GCGRU(nn.Module):
     def __init__(self, in_dim, hid_dim, A, gcn_nlayers, dropout):
         super().__init__()
-        self.linear_r = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
-        self.linear_z = GCN(A, gcn_nlayers, in_dim + hid_dim, hid_dim, dropout)
-        self.linear_in = GCN(A, gcn_nlayers, in_dim, hid_dim, dropout)
-        self.linear_hn = GCN(A, gcn_nlayers, hid_dim, hid_dim, dropout)
+        self.gcn1 = GCN(A, gcn_nlayers, in_dim, hid_dim, dropout)
+        self.gcn2 = GCN(A, gcn_nlayers, hid_dim, hid_dim, dropout)
+        self.gru = GRU(hid_dim, hid_dim, dropout)
 
-    def forward(self, inputs, htm1):
-        """Gated recurrent unit (GRU) with Graph Convolution.
-        :param inputs: (B, num_nodes * input_dim)
-        :param hx: (B, num_nodes * rnn_units)
+    def forward(self, htlm1, htm1):
 
-        :return
-        - Output: A `2-D` tensor with shape `(B, num_nodes * rnn_units)`.
-        """
-
-        concat_input = torch.cat([inputs, htm1], dim=-2)
-        r = torch.sigmoid(self.linear_r(concat_input))
-        z = torch.sigmoid(self.linear_z(concat_input))
-        n = torch.tanh(self.linear_in(inputs) + r * self.linear_hn(htm1))
-        ht = (1.0 - z) * n + z * htm1
+        htlm1 = self.gcn1(htlm1)
+        htm1 = self.gcn2(htm1)
+        ht = self.gru(htlm1, htm1)
         return ht
 
 
