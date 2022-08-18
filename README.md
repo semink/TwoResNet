@@ -2,45 +2,87 @@
 
 This is [PyTorch lightning](https://www.pytorchlightning.ai) implementation of Two-Level resolution Neural Network (TwoResNet) for traffic forecasting.
 
-## Dependencies
+## 1. Installing dependencies
+
+### 1.1. Using conda
 
 > **_NOTE:_** [Anaconda](https://docs.anaconda.com/anaconda/install/index.html) should be installed in the system.
 
-### Create a conda environment
+#### 1.1.1. Create a conda environment
 
 ```bash
-conda env create -f environment.yml
+conda env create -n tworesnet -f environment.yaml
 ```
 
-### Activate the environment
+#### 1.1.2. Activate the environment
 
 ```bash
 conda activate tworesnet
 ```
 
-## Model training
+### 1.2. Using pip
+
+#### 1.2.1. Create a venv environment
 
 ```bash
-# METR-LA
-python run.py --config_filename=data/model/tworesnet.yaml --train --dataset=la
-
-# PEMS-BAY
-python run.py --config_filename=data/model/tworesnet.yaml --train --dataset=bay
+python3 -m venv env
 ```
 
-## Test
+#### 1.2.2. Activate pip environment
 
 ```bash
-# METR-LA
-python run.py --config_filename=data/model/tworesnet.yaml --test --dataset=la
-
-# PEMS-BAY
-python run.py --config_filename=data/model/tworesnet.yaml --test --dataset=bay
+source env/bin/activate
 ```
 
-## Citation
+#### 1.2.3. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 1.3. Install PyTorch
+
+In case error occurs, try to install PyTorch according to your local environment following the description here:
+<https://pytorch.org/>
+
+## 2. Model training
+
+### 2.1. METR-LA
+
+```bash
+python run.py --config=data/model/tworesnet.yaml --train --dataset=la
+```
+
+### 2.2. PEMS-BAY
+
+```bash
+python run.py --config=data/model/tworesnet.yaml --train --dataset=bay
+```
+
+## 3. Test
+
+### 3.1. METR-LA
+
+```bash
+python run.py --config=data/model/tworesnet.yaml --test --dataset=la
+```
+
+### 3.2. PEMS-BAY
+
+```bash
+python run.py --config=data/model/tworesnet.yaml --test --dataset=bay
+```
+
+## 4. Citation
 
 If you find this repository, e.g., the code and the datasets, useful in your research, please cite the following paper:
 
 ```citation
+@inproceedings{Li2022tworesnet,
+      title = {TwoResNet: Two-level resolution neural network for traffic forecasting of freeway networks},
+      author = {Li, Danya and Kwak, Semin and Geroliminis, Nikolas},
+      year = {2022},
+      publisher={25th IEEE International Conference on Intelligent Transportation Systems (ITSC)},
+      venue = {Macau, China}, eventdate={2022-10-08/2022-10-12},
+}
 ```
