@@ -103,7 +103,7 @@ def tune_asha(dataset, dparams, hparams):
             train_model,
             dataset=dataset,
             dparams=dparams),
-        resources_per_trial={"cpu": 1, "gpu": 1},
+        resources_per_trial={"cpu": 4, "gpu": 0.5},
         metric="loss",
         mode="min",
         config=config,

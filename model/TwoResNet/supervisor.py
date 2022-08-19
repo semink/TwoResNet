@@ -51,6 +51,9 @@ class Supervisor(pl.LightningModule):
         self.save_hyperparameters('hparams')
 
     def on_train_start(self):
+        self.logger.log_hyperparams(
+            self.hparams.hparams, {
+                f'{self.monitor_metric_name}/mae': 0})
         for cluster in range(self.cluster_handler.num_clusters):
             self.logger.experiment.add_scalar(f'{self.training_metric_name}/sensors_per_each_clusters', float(
                 (self.cluster_handler.label == cluster).sum()), float(cluster))
@@ -142,8 +145,6 @@ class Supervisor(pl.LightningModule):
             self.model.high_res_block.parameters(), gradient_clip_val)
         torch.nn.utils.clip_grad_norm_(
             self.model.low_res_block.parameters(), gradient_clip_val)
-
-
 
     def _compute_loss(self, y_true, y_predicted, dim=(0, 1, 2, 3)):
         y_predicted = self.standard_scaler.inverse_transform(y_predicted)

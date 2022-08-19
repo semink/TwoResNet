@@ -52,7 +52,7 @@ class GCN(nn.Module):
         for Tn, TnT in zip(self.Tns, self.TnTs):
             y.append(self.gconv(x, Tn))
             y.append(self.gconv(x, TnT))
-        y = torch.concat(y, -2)
+        y = torch.cat(y, -2)
         y = self.linear(y)
         y = self.dropout(y)
         return y
