@@ -65,7 +65,14 @@ HPARAMS:
     rnn_units: 64
     seq_len: 12
     dropout: 0
-    
+  
+  TEACHER_FORCING:
+    mode:
+      LowResNet: off
+      HighResNet: on
+    probability:
+      half_life: 13.33 
+      reduce_rate: 0.1425525 
 
   OPTIMIZER:
     adam:

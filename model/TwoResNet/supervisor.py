@@ -25,10 +25,15 @@ class Supervisor(pl.LightningModule):
         self._HighResNet_kwargs = hparams.get('HighResNet')
         self._LowResNet_kwargs = hparams.get('LowResNet')
         self._optim_kwargs = hparams.get('OPTIMIZER')
+        self._tf_kwargs = hparams.get('TEACHER_FORCING')
         self._metric_kwargs = dparams.get('METRIC')
         self.cluster_handler = Cluster(cluster_label)
         # data set
         self.standard_scaler = scaler
+        self.tf_HighResNet = bool(
+            self._tf_kwargs['mode'].get('HighResNet', False))
+        self.tf_LowResNet = bool(
+            self._tf_kwargs['mode'].get('LowResNet', False))
 
         # setup model
         self.model = TwoResNet(
@@ -81,9 +86,20 @@ class Supervisor(pl.LightningModule):
                 {f'{self.monitor_metric_name}/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
 
     def training_step(self, batch, idx):
+        epoch_float = float(self.current_epoch) + float(idx) / \
+            float(self.trainer.num_training_batches)
+        sampling_p = self.sampling_p(epoch_float)
+        self.log_dict(
+            {f'{self.training_metric_name}/teacher_forcing_probability': sampling_p, "step": epoch_float})
         x, y = batch
 
-        output, output_general = self.model(x)
+        def tf_HighResNet_flag(): return self.teacher_forcing(
+            sampling_p, self.tf_HighResNet)
+
+        def tf_LowResNet_flag(): return self.teacher_forcing(sampling_p, self.tf_LowResNet)
+
+        output, output_general = self.model(
+            x, y, show_answer=dict(low=tf_LowResNet_flag, high=tf_HighResNet_flag))
         loss_detail = self._compute_loss(y, output)
         y_general = self.model.low_res_block.downscaling(y)
         loss_agg = self._compute_loss(
@@ -145,6 +161,22 @@ class Supervisor(pl.LightningModule):
             self.model.high_res_block.parameters(), gradient_clip_val)
         torch.nn.utils.clip_grad_norm_(
             self.model.low_res_block.parameters(), gradient_clip_val)
+
+    def _epoch_reach_to_p(self, p):
+        for epoch in range(1000):
+            if self.sampling_p(epoch) < p:
+                break
+        return epoch-1
+
+    @ staticmethod
+    def _compute_sampling_threshold(epoch, half_life=13.33, reduce_rate=0.1425525):
+        return 1 / (1 + np.exp(4*reduce_rate*(epoch-half_life)))
+
+    @ staticmethod
+    def teacher_forcing(sampling_p, curricular_learning_flag):
+        go_flag = (torch.rand(1).item() < sampling_p) & (
+            curricular_learning_flag)
+        return go_flag
 
     def _compute_loss(self, y_true, y_predicted, dim=(0, 1, 2, 3)):
         y_predicted = self.standard_scaler.inverse_transform(y_predicted)
