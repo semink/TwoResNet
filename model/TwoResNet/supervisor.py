@@ -5,18 +5,28 @@ import os
 from model.TwoResNet.model import TwoResNet
 from lib.utils import masked_MAE, masked_RMSE, masked_MAPE
 import pytorch_lightning as pl
+import torch.nn.functional as F
 
 
 class Cluster:
     def __init__(self, label):
         self.label = label
-        self.A = self.get_indicator_matrix()
+        self.I = self.get_indicator_matrix()
+        self.DI = F.normalize(self.I, p=1, dim=0)
         self.num_clusters = int(np.max(self.label)+1)
 
     def get_indicator_matrix(self):
-        A = (self.label[:, None] == np.arange(
+        I = (self.label[:, None] == np.arange(
             0, np.max(self.label)+1)).astype(int)
-        return torch.tensor(A).float()
+        return torch.tensor(I).float()
+
+    def downscale(self, x):
+        x = torch.einsum('...fn, nk-> ...fk', x, self.DI.type_as(x))
+        return x
+
+    def upscale(self, x):
+        x = torch.einsum('...fk, nk-> ...fn', x, self.I.type_as(x))
+        return x
 
 
 class Supervisor(pl.LightningModule):
@@ -37,7 +47,7 @@ class Supervisor(pl.LightningModule):
 
         # setup model
         self.model = TwoResNet(
-            self.cluster_handler.get_indicator_matrix(),
+            self.cluster_handler,
             adj_mx, input_dim, hparams['DATA']['horizon'],  self._LowResNet_kwargs, self._HighResNet_kwargs
         )
         self.monitor_metric_name = self._metric_kwargs['monitor_metric_name']
@@ -93,17 +103,13 @@ class Supervisor(pl.LightningModule):
             {f'{self.training_metric_name}/teacher_forcing_probability': sampling_p, "step": epoch_float})
         x, y = batch
 
-        def tf_HighResNet_flag(): return self.teacher_forcing(
-            sampling_p, self.tf_HighResNet)
-
-        def tf_LowResNet_flag(): return self.teacher_forcing(sampling_p, self.tf_LowResNet)
-
-        output, output_general = self.model(
-            x, y, show_answer=dict(low=tf_LowResNet_flag, high=tf_HighResNet_flag))
+        show_answer_p = {'low': sampling_p if self.tf_LowResNet else 0,
+                         'high': sampling_p if self.tf_HighResNet else 0}
+        output, output_general = self.model(x, y, show_answer_p=show_answer_p)
         loss_detail = self._compute_loss(y, output)
-        y_general = self.model.low_res_block.downscaling(y)
+        y_general = self.cluster_handler.downscale(y)
         loss_agg = self._compute_loss(
-            y_general, self.model.low_res_block.downscaling(output_general))
+            y_general, output_general)
         self.log(f'{self.training_metric_name}/mae',
                  loss_detail, prog_bar=True)
         self.log(f'{self.training_metric_name}/mae_agg',
@@ -150,9 +156,14 @@ class Supervisor(pl.LightningModule):
         optimizer = torch.optim.Adam(
             self.model.parameters(),  **self._optim_kwargs['adam'])
 
-        lr_scheduler = {'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer, **self._optim_kwargs['reduce_lr_on_plateau']),
-            'name': 'learning_rate', 'monitor': f'{self.monitor_metric_name}/mae'}
+        # dynamic milepost
+        milestones = self._get_milestones()
+        for i, m in enumerate(milestones):
+            self.logger.experiment.add_scalar(
+                f'{self.training_metric_name}/milestones', m, i)
+        lr_scheduler = {'scheduler': torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, gamma=self._optim_kwargs['multisteplr']['gamma'], milestones=milestones),
+            'name': 'learning_rate'}
 
         return [optimizer], [lr_scheduler]
 
@@ -162,6 +173,12 @@ class Supervisor(pl.LightningModule):
         torch.nn.utils.clip_grad_norm_(
             self.model.low_res_block.parameters(), gradient_clip_val)
 
+    def _get_milestones(self):
+        init = self._epoch_reach_to_p(self._tf_kwargs['milestone_start_p'])
+        diff = np.max([int(init/self._optim_kwargs['multisteplr']
+                           ['reduce_step_factor']), 1])*np.arange(0, 4)
+        return (init + diff).tolist()
+
     def _epoch_reach_to_p(self, p):
         for epoch in range(1000):
             if self.sampling_p(epoch) < p:
@@ -169,8 +186,10 @@ class Supervisor(pl.LightningModule):
         return epoch-1
 
     @ staticmethod
-    def _compute_sampling_threshold(epoch, half_life=13.33, reduce_rate=0.1425525):
-        return 1 / (1 + np.exp(4*reduce_rate*(epoch-half_life)))
+    def _compute_sampling_threshold(epoch, half_life_epoch=13.33, slope_at_half=-0.1425525):
+        c = np.exp(-4*half_life_epoch*slope_at_half)
+        x = c/half_life_epoch * np.log(c)
+        return c / (c + np.exp((epoch*x)/c))
 
     @ staticmethod
     def teacher_forcing(sampling_p, curricular_learning_flag):

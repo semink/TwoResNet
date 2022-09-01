@@ -128,7 +128,7 @@ class DataModule(LightningDataModule):
         return self.df.shape[1]
 
     def get_adj(self):
-        return torch.tensor(utils.calculate_random_walk_matrix(self.adj)).float()
+        return torch.tensor(self.adj).float()
 
     def _set_scaler(self):
         train_df, _, _ = utils.split_data(df=self.df)
@@ -139,7 +139,7 @@ class DataModule(LightningDataModule):
     def _set_dataset(self):
         self.ds = TimeSeriesDataset(self.df.values, scaler=self.scaler, t_features=self.t_features,
                                     time_feat_mode=self.time_feat_mode, dow=self.dow,
-                                    seq_len=self.seq_len, horizon=self.horizon)
+                                    seq_len=self.seq_len, horizon=self.horizon, between_times=self.test_on_time)
         ds_len = len(self.ds)
         self.train_ds_idx = range(0, int(ds_len*0.7))
         self.val_ds_idx = range(int(ds_len*0.7), int(ds_len*0.8))

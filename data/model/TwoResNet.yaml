@@ -1,6 +1,6 @@
 # This NONPARAMS sections are not recorded as hyperparameters in tensorboard
 NONPARAMS:
-  LOG:
+  TENSORBOARD_LOG:
     save_dir: experiments
     log_graph: True
     name: TwoResNet-paper-dcrnn
@@ -23,10 +23,10 @@ NONPARAMS:
   TEST:
     checkpoint: 
       la: 
-        dir_path: experiments/la/TwoResNet-paper-pure/version_17/
+        dir_path: experiments/la/TwoResNet-paper-dcrnn/version_73
         file_name: best.ckpt
       bay:
-        dir_path: path/to/checkpoint/
+        dir_path: experiments/bay/TwoResNet-paper-ablation/kdJ_roaWW
         file_name: best.ckpt
     
     on_time:
@@ -71,18 +71,18 @@ HPARAMS:
       LowResNet: off
       HighResNet: on
     probability:
-      half_life: 13.33 
-      reduce_rate: 0.1425525 
+      half_life_epoch: 13.33 
+      slope_at_half: -0.1425525 
+    milestone_start_p: 0.03
 
   OPTIMIZER:
     adam:
-      lr: 3.0e-4
-      weight_decay: 0
+      lr: 1.0e-2
       eps: 1.0e-3
-    reduce_lr_on_plateau:
-      factor: 0.3
-      patience: 5
     LowResNet_loss_weight: 1
+    multisteplr:
+      gamma: 0.1
+      reduce_step_factor: 2
   
   TRAINER:
     gradient_clip_val: 5

@@ -44,10 +44,10 @@ def train_model(config, dataset=None, dparams=None, checkpoint_dir=None):
                                 scaler=dm.get_scaler(),
                                 cluster_label=dm.get_cluster())
 
-    dparams['LOG']['save_dir'] = os.path.join(
-        f"{utils.PROJECT_ROOT}/{dparams['LOG']['save_dir']}", dataset)
+    dparams['TENSORBOARD_LOG']['save_dir'] = os.path.join(
+        f"{utils.PROJECT_ROOT}/{dparams['TENSORBOARD_LOG']['save_dir']}", dataset)
     logger = TensorBoardLogger(
-        **dparams['LOG'],
+        **dparams['TENSORBOARD_LOG'],
         default_hp_metric=False,
         version=f'{common_id}_{shortuuid.ShortUUID().random(length=5)}')
 
@@ -81,10 +81,7 @@ def _tune_choice(params):
         if isinstance(val, dict):
             result[key] = val
         else:
-            if key == 'milestones':
-                result[key] = val
-            else:
-                result[key] = tune.choice(val)
+            result[key] = tune.choice(val)
     return result
 
 
@@ -97,13 +94,13 @@ def tune_asha(dataset, dparams, hparams):
     reporter = CLIReporter(metric_columns=["loss", "training_iteration"])
 
     log_dir = os.path.join(
-        f"{utils.PROJECT_ROOT}/{dparams['LOG']['save_dir']}", dataset)
+        f"{utils.PROJECT_ROOT}/{dparams['TENSORBOARD_LOG']['save_dir']}", dataset)
     analysis = tune.run(
         tune.with_parameters(
             train_model,
             dataset=dataset,
             dparams=dparams),
-        resources_per_trial={"cpu": 4, "gpu": 0.5},
+        resources_per_trial={"cpu": 4, "gpu": 1},
         metric="loss",
         mode="min",
         config=config,

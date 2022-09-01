@@ -37,10 +37,11 @@ def train_model(dataset, dparams, hparams):
                                 scaler=dm.get_scaler(),
                                 cluster_label=dm.get_cluster())
 
-    dparams['LOG']['save_dir'] = os.path.join(
-        dparams['LOG']['save_dir'], dataset)
+    dparams['TENSORBOARD_LOG']['save_dir'] = os.path.join(
+        dparams['TENSORBOARD_LOG']['save_dir'], dataset)
+
     logger = TensorBoardLogger(
-        **dparams['LOG'],
+        **dparams['TENSORBOARD_LOG'],
         default_hp_metric=False)
 
     trainer = Trainer(
