@@ -111,7 +111,3 @@ runs/
 # models
 models/
 experiments/
-
-# pytest
-.pytest_cache/
-test/

@@ -15,19 +15,19 @@ import numpy as np
 import os
 
 
-def data_load(dataset, batch_size, seq_len, horizon, cluster_info, time_feat_mode, day_of_week,
+def data_load(dataset, batch_size, seq_len, horizon, cluster_info, time_feat_mode, dow,
               test_on_time=None, num_workers=os.cpu_count(), **kwargs):
     if test_on_time is None:
         test_on_time = (('00:00', '23:55'),)
     dm = DataModule(dataset, batch_size, seq_len,
-                    horizon, num_workers, cluster_info, time_feat_mode, day_of_week, test_on_time)
+                    horizon, num_workers, cluster_info, time_feat_mode, dow, test_on_time)
     dm.prepare_data()
     return dm
 
 
 def train_model(dataset, dparams, hparams):
     seq_len = np.max(
-        [hparams['HighResNet']['seq_len'], hparams['LowResNet']['seq_len']])
+        [hparams['HIGH_RES_NET']['seq_len'], hparams['LOW_RES_NET']['seq_len']])
     dm = data_load(dataset, **dparams['DATA'],
                    **hparams['DATA'], seq_len=seq_len)
     model = TwoResNetSupervisor(hparams=hparams,
@@ -37,11 +37,10 @@ def train_model(dataset, dparams, hparams):
                                 scaler=dm.get_scaler(),
                                 cluster_label=dm.get_cluster())
 
-    dparams['TENSORBOARD_LOG']['save_dir'] = os.path.join(
-        dparams['TENSORBOARD_LOG']['save_dir'], dataset)
-
+    dparams['LOG']['save_dir'] = os.path.join(
+        dparams['LOG']['save_dir'], dataset)
     logger = TensorBoardLogger(
-        **dparams['TENSORBOARD_LOG'],
+        **dparams['LOG'],
         default_hp_metric=False)
 
     trainer = Trainer(
@@ -70,7 +69,7 @@ def test_model(dataset, dparams):
         cluster_label = np.load(f)
 
     seq_len = np.max(
-        [hparams['HighResNet']['seq_len'], hparams['LowResNet']['seq_len']])
+        [hparams['HIGH_RES_NET']['seq_len'], hparams['LOW_RES_NET']['seq_len']])
     dm = data_load(dataset, **dparams['DATA'],
                    **hparams['DATA'], test_on_time=dparams['TEST']['on_time'], seq_len=seq_len)
 
@@ -94,7 +93,7 @@ if __name__ == '__main__':
 
     # Program specific args
     parser.add_argument("--config", type=str,
-                        default="data/model/TwoResNet.yaml", help="Configuration file path")
+                        default="data/model/tworesnet.yaml", help="Configuration file path")
     parser.add_argument("--dataset", type=str,
                         default="la", help="name of the dataset. it should be either la or bay.",
                         choices=['la', 'bay'])

@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 import os
 from pytorch_lightning import LightningDataModule
 import numpy as np
@@ -139,7 +140,7 @@ class DataModule(LightningDataModule):
     def _set_dataset(self):
         self.ds = TimeSeriesDataset(self.df.values, scaler=self.scaler, t_features=self.t_features,
                                     time_feat_mode=self.time_feat_mode, dow=self.dow,
-                                    seq_len=self.seq_len, horizon=self.horizon, between_times=self.test_on_time)
+                                    seq_len=self.seq_len, horizon=self.horizon)
         ds_len = len(self.ds)
         self.train_ds_idx = range(0, int(ds_len*0.7))
         self.val_ds_idx = range(int(ds_len*0.7), int(ds_len*0.8))
@@ -159,7 +160,7 @@ class DataModule(LightningDataModule):
             x = list(x) + x_pad
             y_pad = [y[-1].clone() for _ in range(num_padding)]
             y = list(y) + y_pad
-        return torch.stack(x).permute(0, 3, 1, 2), torch.stack(y).permute(0, 3, 1, 2)
+        return torch.stack(x), torch.stack(y)
 
     def train_dataloader(self, shuffle=True, pad_with_last_sample=True):
         collate_fn = self._pad_with_last_sample if pad_with_last_sample else None

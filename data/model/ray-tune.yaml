@@ -1,0 +1,125 @@
+# This NONPARAMS sections are not recorded as hyperparameters in tensorboard!
+  
+# This NONPARAMS sections are not recorded as hyperparameters in tensorboard!
+NONPARAMS:
+  RAY_TUNE:
+    ASHA:
+      grace_period: 30
+      reduction_factor: 2
+      max_t: 40
+    RUN:
+      num_samples: 50
+      # resume: true
+  LOG:
+    save_dir: experiments
+    log_graph: True
+    name: TwoResNet_paper_tune2
+
+  SUMMARY:
+    max_depth: -1
+
+  TRAINER:
+    gpus: [0] # set 0 (not [0]) if you don't have GPU
+    max_epochs: 30
+
+  DATA:
+    num_workers: 16
+
+  EARLY_STOPPING:
+    patience: 20
+
+  METRIC:
+    monitor_metric_name: 'validation'
+    training_metric_name: 'training'
+
+# This HPARAMS sections are recorded as hyperparameters in tensorboard!
+# https://docs.ray.io/en/latest/tune/api_docs/search_space.html#tune-sample-docs
+HPARAMS:
+  DATA:
+    batch_size: tune.choice([32])
+    cluster_info:
+      K: tune.randint(1,5)
+      alpha: tune.uniform(0, 1)
+    dow: tune.choice([True])
+    horizon: tune.choice([12])
+    time_feat_mode: tune.choice(['sinusoidal'])
+  
+  HIGH_RES_NET:
+    max_diffusion_step: tune.choice([2])
+    num_rnn_layers: tune.choice([2])
+    output_dim: tune.choice([1])
+    num_rnn_units: tune.choice([64])
+    seq_len: tune.choice([12])
+    dropout: tune.choice([0])
+  
+  OPTIMIZER:
+    adam:
+      eps: tune.loguniform(1.0e-2, 1.0e-4)
+      lr: tune.loguniform(1.0e-1, 1.0e-3)
+    low_resol_loss_weight: tune.uniform(0, 10)
+    multisteplr:
+      gamma: tune.choice([0.1])
+      reduce_step_factor: tune.choice([2])
+
+  
+  LOW_RES_NET:
+    num_rnn_layers: tune.choice([1, 2])
+    output_dim: tune.choice([1])
+    num_rnn_units: tune.choice([64])
+    seq_len: tune.choice([12])
+    dropout: tune.choice([0])
+  
+  TEACHER_FORCING:
+    half_life_epoch: tune.uniform(10, 20)
+    slope_at_half: tune.uniform(-0.1, -0.5)
+    milestone_start_p: tune.choice([0.03])
+    high_resolution_model: tune.choice([True])
+    low_resolution_model: tune.choice([False])
+  
+  TRAINER:
+    gradient_clip_val: tune.choice([5])
+
+POINT_TO_EVALUATE:
+  DATA:
+    batch_size: 32
+    cluster_info:
+      K: 5
+      alpha: 0.5
+    dow: true
+    horizon: 12
+    time_feat_mode: sinusoidal
+  
+  HIGH_RES_NET:
+    max_diffusion_step: 2
+    num_rnn_layers: 2
+    output_dim: 1
+    num_rnn_units: 64
+    seq_len: 12
+    dropout: 0
+  
+  OPTIMIZER:
+    adam:
+      eps: 0.001
+      lr: 0.01
+    low_resol_loss_weight: 1
+    multisteplr:
+      gamma: 0.1
+      reduce_step_factor: 2
+
+  
+  LOW_RES_NET:
+    num_rnn_layers: 1
+    output_dim: 1
+    num_rnn_units: 64
+    seq_len: 12
+    dropout: 0
+  
+  TEACHER_FORCING:
+    half_life_epoch: 13.33
+    slope_at_half: -0.1425525
+    milestone_start_p: 0.03
+    high_resolution_model: on
+    low_resolution_model: off
+  
+  TRAINER:
+    gradient_clip_val: 5

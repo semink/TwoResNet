@@ -47,22 +47,66 @@ In case error occurs, try to install PyTorch according to your local environment
 
 ## 2. Model training
 
-```bash
-# METR-LA
-python run.py --config=data/model/tworesnet.yaml --train --dataset=la
+### 2.1. METR-LA
 
-# PEMS-BAY
+```bash
+python run.py --config=data/model/tworesnet.yaml --train --dataset=la
+```
+
+### 2.2. PEMS-BAY
+
+```bash
 python run.py --config=data/model/tworesnet.yaml --train --dataset=bay
 ```
 
 ## 3. Test
 
-```bash
-# METR-LA
-python run.py --config=data/model/tworesnet.yaml --test --dataset=la
+### 3.1. METR-LA
 
-# PEMS-BAY
-python run.py --confige=data/model/tworesnet.yaml --test --dataset=bay
+```bash
+python run.py --config=data/model/tworesnet.yaml --test --dataset=la
+```
+
+Result
+
+```bash
+Horizon 1 (5 min) - MAE: 2.23, RMSE: 3.87, MAPE: 5.40
+Horizon 2 (10 min) - MAE: 2.48, RMSE: 4.60, MAPE: 6.21
+Horizon 3 (15 min) - MAE: 2.65, RMSE: 5.10, MAPE: 6.82
+Horizon 4 (20 min) - MAE: 2.79, RMSE: 5.49, MAPE: 7.31
+Horizon 5 (25 min) - MAE: 2.90, RMSE: 5.81, MAPE: 7.74
+Horizon 6 (30 min) - MAE: 3.00, RMSE: 6.09, MAPE: 8.14
+Horizon 7 (35 min) - MAE: 3.09, RMSE: 6.33, MAPE: 8.46
+Horizon 8 (40 min) - MAE: 3.16, RMSE: 6.54, MAPE: 8.76
+Horizon 9 (45 min) - MAE: 3.24, RMSE: 6.73, MAPE: 9.03
+Horizon 10 (50 min) - MAE: 3.30, RMSE: 6.89, MAPE: 9.26
+Horizon 11 (55 min) - MAE: 3.36, RMSE: 7.04, MAPE: 9.48
+Horizon 12 (60 min) - MAE: 3.42, RMSE: 7.18, MAPE: 9.68
+Aggregation - MAE: 2.97, RMSE: 6.05, MAPE: 8.02
+```
+
+### 3.2. PEMS-BAY
+
+```bash
+python run.py --config=data/model/tworesnet.yaml --test --dataset=bay
+```
+
+Result
+
+```bash
+Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.56, MAPE: 1.68
+Horizon 2 (10 min) - MAE: 1.13, RMSE: 2.21, MAPE: 2.26
+Horizon 3 (15 min) - MAE: 1.31, RMSE: 2.73, MAPE: 2.71
+Horizon 4 (20 min) - MAE: 1.44, RMSE: 3.13, MAPE: 3.06
+Horizon 5 (25 min) - MAE: 1.54, RMSE: 3.45, MAPE: 3.35
+Horizon 6 (30 min) - MAE: 1.63, RMSE: 3.69, MAPE: 3.59
+Horizon 7 (35 min) - MAE: 1.70, RMSE: 3.89, MAPE: 3.80
+Horizon 8 (40 min) - MAE: 1.76, RMSE: 4.06, MAPE: 3.98
+Horizon 9 (45 min) - MAE: 1.81, RMSE: 4.19, MAPE: 4.13
+Horizon 10 (50 min) - MAE: 1.85, RMSE: 4.30, MAPE: 4.27
+Horizon 11 (55 min) - MAE: 1.89, RMSE: 4.40, MAPE: 4.38
+Horizon 12 (60 min) - MAE: 1.93, RMSE: 4.48, MAPE: 4.49
+Aggregation - MAE: 1.57, RMSE: 3.62, MAPE: 3.48
 ```
 
 ## 4. Citation
@@ -70,4 +114,11 @@ python run.py --confige=data/model/tworesnet.yaml --test --dataset=bay
 If you find this repository, e.g., the code and the datasets, useful in your research, please cite the following paper:
 
 ```citation
+@inproceedings{Li2022tworesnet,
+      title = {TwoResNet: Two-level resolution neural network for traffic forecasting of freeway networks},
+      author = {Li, Danya and Kwak, Semin and Geroliminis, Nikolas},
+      year = {2022},
+      publisher={25th IEEE International Conference on Intelligent Transportation Systems (ITSC)},
+      venue = {Macau, China}, eventdate={2022-10-08/2022-10-12},
+}
 ```

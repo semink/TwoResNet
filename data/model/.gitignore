@@ -2,5 +2,8 @@
 *
 # Except this file
 !.gitignore
-!TwoResNet.yaml
+!*.yaml
 !pretrained
+!pretrained/*
+!pretrained/*/*
+!pretrained/*/*/*
