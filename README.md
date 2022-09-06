@@ -9,13 +9,13 @@ This is [PyTorch lightning](https://www.pytorchlightning.ai) implementation of T
 
 > **_NOTE:_** [Anaconda](https://docs.anaconda.com/anaconda/install/index.html) should be installed in the system.
 
-#### 1.1.1.# 1.1.1. Create a conda environment
+#### 1.1.1. Create a conda environment
 
 ```bash
-conda env create -n tworesnet -n tworesnet -f environment.yaaml
+conda env create -n tworesnet -f environment.yaaml
 ```
 
-#### 1.1.2.# 1.1.2. Activate the environment
+#### 1.1.2. Activate the environment
 
 ```bash
 conda activate tworesnet
@@ -86,11 +86,7 @@ Horizon 12 (60 min) - MAE: 3.47, RMSE: 7.21, MAPE: 9.61
 Aggregation - MAE: 3.01, RMSE: 6.07, MAPE: 8.00
 ```
 
-### 3. 3. 3.2. PEMS-BAY
-
-### 3.1. METR-LA
-
-### 3.1. METR-LA
+### 3.2. PEMS-BAY
 
 ```bash
 python run.py --config=data/model/tworesnet.yaml --test --dataset=bay
@@ -114,18 +110,11 @@ Horizon 12 (60 min) - MAE: 1.93, RMSE: 4.48, MAPE: 4.49
 Aggregation - MAE: 1.57, RMSE: 3.62, MAPE: 3.48
 ```
 
-## 4. 4. Citation
+## 4. Citation
 
 If you find this repository, e.g., the code and the datasets, useful in your research, please cite the following paper:
 
 ```citation
-@inproceedings{Li2022tworesnet,
-      title = {TwoResNet: Two-level resolution neural network for traffic forecasting of freeway networks},
-      author = {Li, Danya and Kwak, Semin and Geroliminis, Nikolas},
-      year = {2022},
-      publisher={25th IEEE International Conference on Intelligent Transportation Systems (ITSC)},
-      venue = {Macau, China}, eventdate={2022-10-08/2022-10-12},
-}
 @inproceedings{Li2022tworesnet,
       title = {TwoResNet: Two-level resolution neural network for traffic forecasting of freeway networks},
       author = {Li, Danya and Kwak, Semin and Geroliminis, Nikolas},
