@@ -1,6 +1,10 @@
 # TwoResNet
 
-![Alt text](./figs/tworesnet.svg)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./figs/tworesnet_dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="./figs/tworesnet_light.svg">
+  <img alt="Shows an illustrated sun in light color mode and a moon with stars in dark color mode." src="https://user-images.githubusercontent.com/25423296/163456779-a8556205-d0a5-45e2-ac17-42d089e3c3f8.png">
+</picture>
 This is [PyTorch lightning](https://www.pytorchlightning.ai) implementation of Two-Level resolution Neural Network (TwoResNet) for traffic forecasting.
 
 ## 1. Installing dependencies
@@ -48,6 +52,8 @@ In case error occurs, try to install PyTorch according to your local environment
 
 ## 2. Model training
 
+> You can find tensorboard logs for pretrained models [here](https://tensorboard.dev/experiment/q2igppHyRV2HqUgPA74x2w/).
+
 ### 2.1. METR-LA
 
 ```bash
@@ -71,19 +77,19 @@ python run.py --config=data/model/tworesnet.yaml --test --dataset=la
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 2.26, RMSE: 3.90, MAPE: 5.50
-Horizon 2 (10 min) - MAE: 2.51, RMSE: 4.62, MAPE: 6.26
-Horizon 3 (15 min) - MAE: 2.67, RMSE: 5.10, MAPE: 6.84
-Horizon 4 (20 min) - MAE: 2.81, RMSE: 5.49, MAPE: 7.30
-Horizon 5 (25 min) - MAE: 2.92, RMSE: 5.81, MAPE: 7.72
-Horizon 6 (30 min) - MAE: 3.04, RMSE: 6.09, MAPE: 8.11
-Horizon 7 (35 min) - MAE: 3.12, RMSE: 6.33, MAPE: 8.41
-Horizon 8 (40 min) - MAE: 3.21, RMSE: 6.56, MAPE: 8.71
-Horizon 9 (45 min) - MAE: 3.29, RMSE: 6.75, MAPE: 8.97
-Horizon 10 (50 min) - MAE: 3.35, RMSE: 6.91, MAPE: 9.18
-Horizon 11 (55 min) - MAE: 3.41, RMSE: 7.07, MAPE: 9.40
-Horizon 12 (60 min) - MAE: 3.47, RMSE: 7.21, MAPE: 9.61
-Aggregation - MAE: 3.01, RMSE: 6.07, MAPE: 8.00
+Horizon 1 (5 min) - MAE: 2.24, RMSE: 3.85, MAPE: 5.40
+Horizon 2 (10 min) - MAE: 2.49, RMSE: 4.57, MAPE: 6.19
+Horizon 3 (15 min) - MAE: 2.65, RMSE: 5.06, MAPE: 6.78
+Horizon 4 (20 min) - MAE: 2.79, RMSE: 5.46, MAPE: 7.27
+Horizon 5 (25 min) - MAE: 2.91, RMSE: 5.79, MAPE: 7.71
+Horizon 6 (30 min) - MAE: 3.02, RMSE: 6.08, MAPE: 8.09
+Horizon 7 (35 min) - MAE: 3.11, RMSE: 6.33, MAPE: 8.42
+Horizon 8 (40 min) - MAE: 3.19, RMSE: 6.55, MAPE: 8.71
+Horizon 9 (45 min) - MAE: 3.27, RMSE: 6.74, MAPE: 8.98
+Horizon 10 (50 min) - MAE: 3.34, RMSE: 6.91, MAPE: 9.23
+Horizon 11 (55 min) - MAE: 3.40, RMSE: 7.07, MAPE: 9.44
+Horizon 12 (60 min) - MAE: 3.47, RMSE: 7.22, MAPE: 9.66
+Aggregation - MAE: 2.99, RMSE: 6.06, MAPE: 7.99
 ```
 
 ### 3.2. PEMS-BAY
@@ -95,19 +101,19 @@ python run.py --config=data/model/tworesnet.yaml --test --dataset=bay
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.56, MAPE: 1.68
-Horizon 2 (10 min) - MAE: 1.13, RMSE: 2.21, MAPE: 2.26
-Horizon 3 (15 min) - MAE: 1.31, RMSE: 2.73, MAPE: 2.71
-Horizon 4 (20 min) - MAE: 1.44, RMSE: 3.13, MAPE: 3.06
-Horizon 5 (25 min) - MAE: 1.54, RMSE: 3.45, MAPE: 3.35
-Horizon 6 (30 min) - MAE: 1.63, RMSE: 3.69, MAPE: 3.59
-Horizon 7 (35 min) - MAE: 1.70, RMSE: 3.89, MAPE: 3.80
-Horizon 8 (40 min) - MAE: 1.76, RMSE: 4.06, MAPE: 3.98
-Horizon 9 (45 min) - MAE: 1.81, RMSE: 4.19, MAPE: 4.13
-Horizon 10 (50 min) - MAE: 1.85, RMSE: 4.30, MAPE: 4.27
-Horizon 11 (55 min) - MAE: 1.89, RMSE: 4.40, MAPE: 4.38
-Horizon 12 (60 min) - MAE: 1.93, RMSE: 4.48, MAPE: 4.49
-Aggregation - MAE: 1.57, RMSE: 3.62, MAPE: 3.48
+Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.55, MAPE: 1.68
+Horizon 2 (10 min) - MAE: 1.13, RMSE: 2.20, MAPE: 2.26
+Horizon 3 (15 min) - MAE: 1.30, RMSE: 2.71, MAPE: 2.70
+Horizon 4 (20 min) - MAE: 1.43, RMSE: 3.11, MAPE: 3.04
+Horizon 5 (25 min) - MAE: 1.53, RMSE: 3.42, MAPE: 3.32
+Horizon 6 (30 min) - MAE: 1.62, RMSE: 3.67, MAPE: 3.56
+Horizon 7 (35 min) - MAE: 1.69, RMSE: 3.87, MAPE: 3.77
+Horizon 8 (40 min) - MAE: 1.74, RMSE: 4.03, MAPE: 3.95
+Horizon 9 (45 min) - MAE: 1.79, RMSE: 4.16, MAPE: 4.10
+Horizon 10 (50 min) - MAE: 1.84, RMSE: 4.27, MAPE: 4.24
+Horizon 11 (55 min) - MAE: 1.88, RMSE: 4.37, MAPE: 4.35
+Horizon 12 (60 min) - MAE: 1.92, RMSE: 4.46, MAPE: 4.47
+Aggregation - MAE: 1.56, RMSE: 3.60, MAPE: 3.45
 ```
 
 ## 4. Citation

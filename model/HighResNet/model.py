@@ -9,19 +9,19 @@ class GCGRUModel(nn.Module):
     def __init__(self, in_dim, hid_dim, num_rnn_layers,
                  gcn_order, num_supports, dropout):
         super().__init__()
-        dcgru_layers = nn.ModuleList(
+        gcgru_layers = nn.ModuleList(
             [GCGRUCell(in_dim, hid_dim, gcn_order, num_supports, dropout)])
         for _ in range(num_rnn_layers - 1):
-            dcgru_layers.append(
+            gcgru_layers.append(
                 GCGRUCell(
                     hid_dim,
                     hid_dim,
                     gcn_order,
                     num_supports, dropout))
-        self.dcgru = GCGRU(dcgru_layers, hid_dim)
+        self.gcgru = GCGRU(gcgru_layers, hid_dim)
 
     def forward(self, inputs, supports, hidden_state=None):
-        hidden_states = self.dcgru(inputs, hidden_state, supports)
+        hidden_states = self.gcgru(inputs, hidden_state, supports)
         return hidden_states
 
 
