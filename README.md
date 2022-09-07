@@ -48,8 +48,7 @@ pip install -r requirements.txt
 
 ### 1.3. Install PyTorch
 
-In case error occurs, try to install PyTorch according to your local environment following the description here:
-<https://pytorch.org/>
+In case error occurs, try to install PyTorch according to your local environment following the description [here](https://pytorch.org/).
 
 ## 2. Model training
 
