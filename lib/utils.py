@@ -178,17 +178,18 @@ def gaussian_kernel(distance, sparcity=0.9, patience=1):
     return S_dist
 
 
-def get_mix_similarity(df_traffic, A_dist, sparcity=0.9, patience=1, alpha=0.5, method='addition'):
+def get_mix_similarity(df_traffic, A_dist, sparcity=dict(prox=0.9, corr=0.9), patience=1, alpha=0.5,
+                       method='addition'):
     physical_similarity = A_dist
     signal_similarity = get_signal_distance(df_traffic)
     if method == 'addition':
         mix_similarity = alpha * gaussian_kernel(physical_similarity.values,
-                                                 sparcity=sparcity, patience=patience) + (1 - alpha) * gaussian_kernel(signal_similarity.values,
-                                                                                                                       sparcity=sparcity, patience=patience)
+                                                 sparcity=sparcity['prox'], patience=patience) + (1 - alpha) * gaussian_kernel(signal_similarity.values,
+                                                                                                                               sparcity=sparcity['corr'], patience=patience)
     elif method == 'multiplication':
         mix_similarity = gaussian_kernel(physical_similarity.values,
-                                         sparcity=sparcity, patience=patience) * gaussian_kernel(signal_similarity.values,
-                                                                                                 sparcity=sparcity, patience=patience)
+                                         sparcity=sparcity['prox'], patience=patience) * gaussian_kernel(signal_similarity.values,
+                                                                                                         sparcity=sparcity['corr'], patience=patience)
     return mix_similarity
 
 
@@ -200,12 +201,13 @@ def get_sparcity(mat, nan_val=0.0):
     return zeros/mat.size
 
 
-def clustering(df_raw, distance_km, alpha=0.5, K=5):
+def clustering(df_raw, distance_km, alpha=0.5, K=5, sparcity=dict(prox=0.9, corr=0.1), method='addition'):
     sensors = df_raw.columns.astype(int)
     distance_km = distance_km.pivot(
         index='from', columns='to', values='distance').loc[sensors][sensors]
 
-    mix_similarity = get_mix_similarity(df_raw, distance_km, alpha=alpha)
+    mix_similarity = get_mix_similarity(
+        df_raw, distance_km, alpha=alpha, sparcity=sparcity, method=method)
 
     # 2. Spectral clustering
     clustering = SpectralClustering(n_clusters=K,
@@ -215,3 +217,34 @@ def clustering(df_raw, distance_km, alpha=0.5, K=5):
     new_df = pd.DataFrame(data=clustering.labels_,
                           index=sensors)
     return new_df
+
+
+def search(d, k, path=None):
+    if path is None:
+        path = []
+
+    # Reached bottom of dict - no good
+    if not isinstance(d, dict):
+        return False
+
+    # Found it!
+    if k in d.keys():
+        path.append(k)
+        return path
+
+    else:
+        check = list(d.keys())
+        # Look in each key of dictionary
+        while check:
+            first = check[0]
+            # Note which we just looked in
+            path.append(first)
+            if search(d[first], k, path) is not False:
+                break
+            else:
+                # Move on
+                check.pop(0)
+                path.pop(-1)
+        else:
+            return False
+        return path

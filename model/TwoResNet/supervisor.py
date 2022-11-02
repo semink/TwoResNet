@@ -95,6 +95,8 @@ class Supervisor(pl.LightningModule):
         for metric in loss:
             self.log_dict(
                 {f'{self.monitor_metric_name}/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
+        self.log_dict({f'{self.monitor_metric_name}/combine':
+                       torch.tensor([loss[metric] for metric in loss]).sum(), "step": float(self.current_epoch)}, prog_bar=True)
 
     def training_step(self, batch, idx):
         epoch_float = float(self.current_epoch) + float(idx) / \

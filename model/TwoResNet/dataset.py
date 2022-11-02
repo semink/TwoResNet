@@ -110,14 +110,25 @@ class DataModule(LightningDataModule):
         # set dataset
         self._set_dataset()
 
-    def get_cluster(self):
+    def get_cluster(self, format=None, override=None):
         train_df, _, _ = utils.split_data(df=self.df)
         distance_km = pd.read_csv(
             f'{utils.PROJECT_ROOT}/data/distance_{self.dataset}.csv')
-        cluster = utils.clustering(
-            train_df, distance_km, **self.cluster_info)
+
+        if override is None:
+            cluster = utils.clustering(
+                train_df, distance_km, **self.cluster_info)
+        else:
+            cluster = utils.clustering(train_df, distance_km,
+                                       **override)
         cluster = cluster.loc[self.df.columns.astype(int)]
-        return cluster.T.values[0]
+
+        return_value = cluster.T.values[0]
+        if format == 'df':
+            return_value = pd.DataFrame(index=self.df.columns, data=cluster.T.values[0],
+                                        columns=['index'])
+            return_value.index = return_value.index.astype('int')
+        return return_value
 
     def get_scaler(self):
         return self.scaler
@@ -145,6 +156,9 @@ class DataModule(LightningDataModule):
         self.train_ds_idx = range(0, int(ds_len*0.7))
         self.val_ds_idx = range(int(ds_len*0.7), int(ds_len*0.8))
         self.test_ds_idx = range(int(ds_len*0.8), ds_len)
+
+        self.train_df, self.valid_df, self.test_df = utils.split_data(
+            df=self.df)
 
     def get_raw_data(self):
         return self.df, self.adj
