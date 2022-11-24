@@ -25,9 +25,9 @@ PROJECT_ROOT = get_project_root()
 def double_transition_matrix(adj_mx):
     supports = []
     supports.append(torch.tensor(
-        calculate_random_walk_matrix(adj_mx).T))
+        calculate_random_walk_matrix(adj_mx)))
     supports.append(torch.tensor(
-        calculate_random_walk_matrix(adj_mx.T).T))
+        calculate_random_walk_matrix(adj_mx.T)))
     return supports
 
 
@@ -116,11 +116,11 @@ def torch_mask_null(input, null_value=0.0, eps=1e-3):
     return mask
 
 
-def masked_metric(agg_fn, error_fn, pred, target, null_value=0.0, dim=0):
+def masked_metric(agg_fn, error_fn, pred, target, null_value=0.0, agg_dim=0):
     mask = (target != null_value).float()
     target_ = target.clone()
     target_[mask == 0.0] = 1.0  # for mape
-    mask /= torch.mean(mask, dim=dim, keepdim=True)
+    mask /= torch.mean(mask, dim=agg_dim, keepdim=True)
     mask = torch.where(torch.isnan(mask), torch.zeros_like(mask), mask)
     score = error_fn(pred, target_)
     score = score*mask
@@ -128,31 +128,31 @@ def masked_metric(agg_fn, error_fn, pred, target, null_value=0.0, dim=0):
     return agg_fn(score)
 
 
-def masked_MAE(pred, target, null_value=0.0, dim=(0, 1, 2)):
-    mae = masked_metric(agg_fn=lambda e: torch.mean(e, dim=dim),
+def masked_MAE(pred, target, null_value=0.0, agg_dim=(0, 1, 2)):
+    mae = masked_metric(agg_fn=lambda e: torch.mean(e, dim=agg_dim),
                         error_fn=lambda p, t: torch.absolute(p - t),
-                        pred=pred, target=target, null_value=null_value, dim=dim)
+                        pred=pred, target=target, null_value=null_value, agg_dim=agg_dim)
     return mae
 
 
-def masked_MSE(pred, target, null_value=0.0, dim=(0, 1, 2)):
-    mse = masked_metric(agg_fn=lambda e: torch.mean(e, dim=dim),
+def masked_MSE(pred, target, null_value=0.0, agg_dim=(0, 1, 2)):
+    mse = masked_metric(agg_fn=lambda e: torch.mean(e, dim=agg_dim),
                         error_fn=lambda p, t: (p - t) ** 2,
-                        pred=pred, target=target, null_value=null_value, dim=dim)
+                        pred=pred, target=target, null_value=null_value, agg_dim=agg_dim)
     return mse
 
 
-def masked_RMSE(pred, target, null_value=0.0, dim=(0, 1, 2)):
-    rmse = masked_metric(agg_fn=lambda e: torch.sqrt(torch.mean(e, dim=dim)),
+def masked_RMSE(pred, target, null_value=0.0, agg_dim=(0, 1, 2)):
+    rmse = masked_metric(agg_fn=lambda e: torch.sqrt(torch.mean(e, dim=agg_dim)),
                          error_fn=lambda p, t: (p - t)**2,
-                         pred=pred, target=target, null_value=null_value, dim=dim)
+                         pred=pred, target=target, null_value=null_value, agg_dim=agg_dim)
     return rmse
 
 
-def masked_MAPE(pred, target, null_value=0.0, dim=(0, 1, 2)):
-    mape = masked_metric(agg_fn=lambda e: torch.mean(torch.absolute(e) * 100, dim=dim),
+def masked_MAPE(pred, target, null_value=0.0, agg_dim=(0, 1, 2)):
+    mape = masked_metric(agg_fn=lambda e: torch.mean(torch.absolute(e) * 100, dim=agg_dim),
                          error_fn=lambda p, t: ((p - t) / (t)),
-                         pred=pred, target=target, null_value=null_value, dim=dim)
+                         pred=pred, target=target, null_value=null_value, agg_dim=agg_dim)
     return mape
 
 
@@ -178,10 +178,13 @@ def gaussian_kernel(distance, sparcity=0.9, patience=1):
     return S_dist
 
 
-def get_mix_similarity(df_traffic, A_dist, sparcity=dict(prox=0.9, corr=0.9), patience=1, alpha=0.5,
-                       method='addition'):
-    physical_similarity = A_dist
-    signal_similarity = get_signal_distance(df_traffic)
+def get_mix_similarity(df_raw, distance_km, sparcity=dict(prox=0.9, corr=0.9), patience=1, alpha=0.5,
+                       method='addition', **kwargs):
+    sensors = df_raw.columns.astype(int)
+    distance_km = distance_km.pivot(
+        index='from', columns='to', values='distance').loc[sensors][sensors]
+    physical_similarity = distance_km
+    signal_similarity = get_signal_distance(df_raw)
     if method == 'addition':
         mix_similarity = alpha * gaussian_kernel(physical_similarity.values,
                                                  sparcity=sparcity['prox'], patience=patience) + (1 - alpha) * gaussian_kernel(signal_similarity.values,
@@ -190,7 +193,7 @@ def get_mix_similarity(df_traffic, A_dist, sparcity=dict(prox=0.9, corr=0.9), pa
         mix_similarity = gaussian_kernel(physical_similarity.values,
                                          sparcity=sparcity['prox'], patience=patience) * gaussian_kernel(signal_similarity.values,
                                                                                                          sparcity=sparcity['corr'], patience=patience)
-    return mix_similarity
+    return mix_similarity, sensors
 
 
 def get_sparcity(mat, nan_val=0.0):
@@ -201,14 +204,7 @@ def get_sparcity(mat, nan_val=0.0):
     return zeros/mat.size
 
 
-def clustering(df_raw, distance_km, alpha=0.5, K=5, sparcity=dict(prox=0.9, corr=0.1), method='addition'):
-    sensors = df_raw.columns.astype(int)
-    distance_km = distance_km.pivot(
-        index='from', columns='to', values='distance').loc[sensors][sensors]
-
-    mix_similarity = get_mix_similarity(
-        df_raw, distance_km, alpha=alpha, sparcity=sparcity, method=method)
-
+def clustering(mix_similarity, sensors, K=5,  **kwargs):
     # 2. Spectral clustering
     clustering = SpectralClustering(n_clusters=K,
                                     assign_labels='discretize',
@@ -217,34 +213,3 @@ def clustering(df_raw, distance_km, alpha=0.5, K=5, sparcity=dict(prox=0.9, corr
     new_df = pd.DataFrame(data=clustering.labels_,
                           index=sensors)
     return new_df
-
-
-def search(d, k, path=None):
-    if path is None:
-        path = []
-
-    # Reached bottom of dict - no good
-    if not isinstance(d, dict):
-        return False
-
-    # Found it!
-    if k in d.keys():
-        path.append(k)
-        return path
-
-    else:
-        check = list(d.keys())
-        # Look in each key of dictionary
-        while check:
-            first = check[0]
-            # Note which we just looked in
-            path.append(first)
-            if search(d[first], k, path) is not False:
-                break
-            else:
-                # Move on
-                check.pop(0)
-                path.pop(-1)
-        else:
-            return False
-        return path

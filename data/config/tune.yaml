@@ -1,0 +1,85 @@
+NONPARAMS:
+  RAY_TUNE:
+    # resume: true
+    MedianStoppingRule:
+      grace_period: 25
+      time_attr: training_iteration
+    RUN:
+      num_samples: 50
+      verbose: 1
+      resources_per_trial:
+        cpu: 16
+        gpu: 0.5
+      
+  LOG:
+    save_dir: experiments
+    log_graph: off
+    name: TwoResNet_tune
+
+  SUMMARY:
+    max_depth: 3
+
+  TRAINER:
+    accelerator: gpu
+    devices: [0] 
+    max_epochs: 40
+
+  DATA:
+    num_workers: 16
+
+  EARLY_STOPPING:
+    patience: 30
+
+  METRIC:
+    monitor_metric_name: 'validation'
+    training_metric_name: 'training'
+    loss_metric: 'mae'
+
+# This HPARAMS sections are recorded as hyperparameters in tensorboard!
+# https://docs.ray.io/en/latest/tune/api_docs/search_space.html#tune-sample-docs
+HPARAMS:
+  DATA:
+    batch_size: tune.choice([24, 32, 64])
+    dow: true
+    horizon: 12
+    seq_len: 12
+    time_feat_mode: sinusoidal
+    cluster_info:
+      K: tune.randint(1, 10)
+      alpha: tune.uniform(0.2, 0.8)
+      sparcity:
+        corr: tune.uniform(0.8, 0.95)
+        prox: tune.uniform(0.8, 0.95)
+  
+  HIGH_RES_NET:
+    gcn_order: tune.choice([1, 2])
+    num_RU: tune.choice([1, 2])
+    out_feat: 1
+    hid_feat: tune.choice([32, 64])
+    dropout: tune.uniform(0, 0.2)
+  
+  OPTIMIZER:
+    adam:
+      eps: tune.loguniform(0.0001, 0.01)
+      lr: tune.loguniform(0.001, 0.1)
+    low_resol_loss_weight: tune.loguniform(0.3, 3)
+    multisteplr:
+      gamma: 0.1
+      reduce_step_factor: 2
+
+  LOW_RES_NET:
+    num_RU: tune.choice([1, 2])
+    out_feat: 1
+    hid_feat: tune.choice([32, 64])
+    dropout: tune.uniform(0, 0.2)
+  
+  TEACHER_FORCING:
+    half_life_epoch: 13.33
+    slope_at_half: -0.1425525
+    milestone_start_p: 0.03
+    high_resolution_model: on
+    low_resolution_model: tune.choice([True, False])
+  
+  TRAINER:
+    gradient_clip_val: tune.uniform(1, 10)
+    

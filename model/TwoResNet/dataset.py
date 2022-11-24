@@ -84,6 +84,7 @@ class DataModule(LightningDataModule):
         self.time_feat_mode = time_feat_mode
         self.dow = dow
         self.test_on_time = test_on_time
+        self.cluster = None
 
     def get_input_dim(self):
         dim = 1
@@ -110,25 +111,37 @@ class DataModule(LightningDataModule):
         # set dataset
         self._set_dataset()
 
+    def set_cluster(self, format=None, override=None, force=False):
+        if self.cluster is None or force:
+            train_df, _, _ = utils.split_data(df=self.df)
+            distance_km = pd.read_csv(
+                f'{utils.PROJECT_ROOT}/data/distance_{self.dataset}.csv')
+
+            if override is not None:
+                mix_similarity, sensors = utils.get_mix_similarity(
+                    train_df, distance_km, **self.cluster_info, **override)
+            else:
+                mix_similarity, sensors = utils.get_mix_similarity(
+                    train_df, distance_km, **self.cluster_info)
+
+            cluster = utils.clustering(mix_similarity, sensors)
+            cluster = cluster.loc[self.df.columns.astype(int)]
+
+            return_value = cluster.T.values[0]
+            if format == 'df':
+                return_value = pd.DataFrame(index=self.df.columns, data=cluster.T.values[0],
+                                            columns=['index'])
+                return_value.index = return_value.index.astype('int')
+
+            if self.cluster_info['K'] > 1:
+                self.adj = mix_similarity
+
+            self.cluster = return_value
+
     def get_cluster(self, format=None, override=None):
-        train_df, _, _ = utils.split_data(df=self.df)
-        distance_km = pd.read_csv(
-            f'{utils.PROJECT_ROOT}/data/distance_{self.dataset}.csv')
-
-        if override is None:
-            cluster = utils.clustering(
-                train_df, distance_km, **self.cluster_info)
-        else:
-            cluster = utils.clustering(train_df, distance_km,
-                                       **override)
-        cluster = cluster.loc[self.df.columns.astype(int)]
-
-        return_value = cluster.T.values[0]
-        if format == 'df':
-            return_value = pd.DataFrame(index=self.df.columns, data=cluster.T.values[0],
-                                        columns=['index'])
-            return_value.index = return_value.index.astype('int')
-        return return_value
+        if self.cluster is None:
+            self.set_cluster(format=format, override=override)
+        return self.cluster
 
     def get_scaler(self):
         return self.scaler
@@ -140,6 +153,8 @@ class DataModule(LightningDataModule):
         return self.df.shape[1]
 
     def get_adj(self):
+        if self.cluster_info['K'] > 1:
+            self.set_cluster()
         return torch.tensor(self.adj).float()
 
     def _set_scaler(self):
@@ -149,8 +164,10 @@ class DataModule(LightningDataModule):
         self.scaler = utils.StandardScaler(mean, std)
 
     def _set_dataset(self):
-        self.ds = TimeSeriesDataset(self.df.values, scaler=self.scaler, t_features=self.t_features,
-                                    time_feat_mode=self.time_feat_mode, dow=self.dow,
+        self.ds = TimeSeriesDataset(self.df.values, scaler=self.scaler,
+                                    t_features=self.t_features,
+                                    time_feat_mode=self.time_feat_mode,
+                                    dow=self.dow,
                                     seq_len=self.seq_len, horizon=self.horizon)
         ds_len = len(self.ds)
         self.train_ds_idx = range(0, int(ds_len*0.7))
@@ -159,6 +176,13 @@ class DataModule(LightningDataModule):
 
         self.train_df, self.valid_df, self.test_df = utils.split_data(
             df=self.df)
+        self.test_ds = TimeSeriesDataset(self.df.values[self.test_ds_idx[0]:],
+                                         scaler=self.scaler,
+                                         t_features=self.t_features.iloc[self.test_ds_idx[0]:],
+                                         time_feat_mode=self.time_feat_mode,
+                                         dow=self.dow,
+                                         seq_len=self.seq_len, horizon=self.horizon,
+                                         between_times=self.test_on_time)
 
     def get_raw_data(self):
         return self.df, self.adj
@@ -188,5 +212,5 @@ class DataModule(LightningDataModule):
 
     def test_dataloader(self, shuffle=False, pad_with_last_sample=True):
         collate_fn = self._pad_with_last_sample if pad_with_last_sample else None
-        return DataLoader(Subset(self.ds, self.test_ds_idx), batch_size=self.batch_size,
+        return DataLoader(self.test_ds, batch_size=self.batch_size,
                           shuffle=shuffle, num_workers=self.num_workers, collate_fn=collate_fn)

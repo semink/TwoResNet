@@ -2,37 +2,39 @@ hparams:
   DATA:
     batch_size: 32
     cluster_info:
-      K: 2
-      alpha: 0.5959582109242141
+      K: 5
+      alpha: 0.7724805332027245
+      sparcity:
+        corr: 0.9173555744662076
+        prox: 0.8831702402620814
     dow: true
     horizon: 12
+    seq_len: 12
     time_feat_mode: sinusoidal
   HIGH_RES_NET:
     dropout: 0
-    max_diffusion_step: 2
-    num_rnn_layers: 2
-    num_rnn_units: 64
-    output_dim: 1
-    seq_len: 12
+    gcn_order: 2
+    hid_feat: 64
+    num_RU: 2
+    out_feat: 1
   LOW_RES_NET:
     dropout: 0
-    num_rnn_layers: 1
-    num_rnn_units: 64
-    output_dim: 1
-    seq_len: 12
+    hid_feat: 64
+    num_RU: 1
+    out_feat: 1
   OPTIMIZER:
     adam:
-      eps: 0.0004034741719422551
-      lr: 0.005790636929899821
-    low_resol_loss_weight: 5.225247139809475
+      eps: 0.001
+      lr: 0.01
+    low_resol_loss_weight: 1
     multisteplr:
       gamma: 0.1
       reduce_step_factor: 2
   TEACHER_FORCING:
-    half_life_epoch: 16.67781503680951
+    half_life_epoch: 13.33
     high_resolution_model: true
     low_resolution_model: false
     milestone_start_p: 0.03
-    slope_at_half: -0.12577836163695089
+    slope_at_half: -0.1425525
   TRAINER:
     gradient_clip_val: 5

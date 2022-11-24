@@ -1,0 +1,32 @@
+TRAINER:
+  accelerator: gpu
+  devices: [0] 
+
+DATA:
+  num_workers: 16
+
+TEST:
+  checkpoint: 
+    la: 
+      dir_path: data/model/pretrained/METR-LA
+      file_name: best.ckpt
+    bay:
+      dir_path: data/model/pretrained/PEMS-BAY
+      file_name: best.ckpt
+  
+  on_time:
+    # - # morning peak
+    #   - '06:00'
+    #   - '10:00'
+    # - # evening peak
+    #   - '14:00'
+    #   - '20:00'
+    # - # off peak
+    #   - '00:00'
+    #   - '06:00'
+    # -
+    #   - '10:00'
+    #   - '14:00'
+    # - 
+    #   - '20:00'
+    #   - '23:55'
