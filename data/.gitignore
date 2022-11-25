@@ -3,5 +3,8 @@
 # Except this file
 !.gitignore
 !model
+!config
 !distance_bay.csv
 !distance_la.csv
+!sensor_location_METR-LA.csv
+!sensor_location_PEMS-BAY.csv

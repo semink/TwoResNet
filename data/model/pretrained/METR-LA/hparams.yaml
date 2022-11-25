@@ -3,23 +3,25 @@ hparams:
     batch_size: 32
     cluster_info:
       K: 5
-      alpha: 0.5
+      alpha: 0.4556550085278627
+      sparcity:
+        corr: 0.9015075698183189
+        prox: 0.8235293538393196
     dow: true
     horizon: 12
+    seq_len: 12
     time_feat_mode: sinusoidal
   HIGH_RES_NET:
     dropout: 0
-    max_diffusion_step: 2
-    num_rnn_layers: 2
-    num_rnn_units: 64
-    output_dim: 1
-    seq_len: 12
+    gcn_order: 2
+    hid_feat: 64
+    num_RU: 2
+    out_feat: 1
   LOW_RES_NET:
     dropout: 0
-    num_rnn_layers: 1
-    num_rnn_units: 64
-    output_dim: 1
-    seq_len: 12
+    hid_feat: 64
+    num_RU: 1
+    out_feat: 1
   OPTIMIZER:
     adam:
       eps: 0.001

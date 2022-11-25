@@ -6,17 +6,18 @@ import yaml
 from model.TwoResNet.supervisor import Supervisor as TwoResNetSupervisor
 
 from pytorch_lightning.callbacks import RichModelSummary, RichProgressBar, ModelCheckpoint, LearningRateMonitor
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning import Trainer
 import numpy as np
 
 import os
+from lib import utils
 
+import shortuuid
 
-def data_load(dataset, batch_size, seq_len, horizon, cluster_info, time_feat_mode, dow,
-              test_on_time=None, num_workers=os.cpu_count(), **kwargs):
+def data_load(dataset, batch_size=32, seq_len=12, horizon=12, cluster_info=dict(K=3, alpha=0.5), time_feat_mode='sinusoidal', 
+              dow=True, test_on_time=None, num_workers=os.cpu_count(), **kwargs):
     if test_on_time is None:
         test_on_time = (('00:00', '23:55'),)
     dm = DataModule(dataset, batch_size, seq_len,
@@ -25,39 +26,40 @@ def data_load(dataset, batch_size, seq_len, horizon, cluster_info, time_feat_mod
     return dm
 
 
-def train_model(dataset, dparams, hparams):
-    seq_len = np.max(
-        [hparams['HIGH_RES_NET']['seq_len'], hparams['LOW_RES_NET']['seq_len']])
-    dm = data_load(dataset, **dparams['DATA'],
-                   **hparams['DATA'], seq_len=seq_len)
-    model = TwoResNetSupervisor(hparams=hparams,
-                                dparams=dparams,
+def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additional_callbacks=None):
+    dm = data_load(dataset, **dparams['DATA'], **config['DATA'])
+
+    model = TwoResNetSupervisor(hparams=config, dparams=dparams,
                                 input_dim=dm.get_input_dim(),
                                 adj_mx=dm.get_adj(),
                                 scaler=dm.get_scaler(),
                                 cluster_label=dm.get_cluster())
 
     dparams['LOG']['save_dir'] = os.path.join(
-        dparams['LOG']['save_dir'], dataset)
+        f"{utils.PROJECT_ROOT}/{dparams['LOG']['save_dir']}", dataset)
     logger = TensorBoardLogger(
         **dparams['LOG'],
-        default_hp_metric=False)
+        default_hp_metric=False,
+        version=shortuuid.uuid())
 
+    if checkpoint_dir:
+        dparams['TRAINER']["resume_from_checkpoint"] = os.path.join(
+            checkpoint_dir, "checkpoint")
+
+    callbacks = [RichModelSummary(**dparams['SUMMARY']),
+                 RichProgressBar(),
+                 LearningRateMonitor(logging_interval='epoch'),
+                 ModelCheckpoint(filename='best',
+                                 monitor=f"{dparams['METRIC']['monitor_metric_name']}/{dparams['METRIC']['loss_metric']}", save_last=True)]
+
+    if additional_callbacks:
+        [callbacks.append(callback) for callback in additional_callbacks]
     trainer = Trainer(
-        **dparams['TRAINER'], **hparams['TRAINER'],
-        # max_epochs=model._get_milestones()[-2],
-        callbacks=[RichModelSummary(**dparams['SUMMARY']),
-                   RichProgressBar(),
-                   LearningRateMonitor(logging_interval='epoch'),
-                   ModelCheckpoint(filename='best',
-                                   monitor=f"{dparams['METRIC']['monitor_metric_name']}/mae", save_last=True),
-                   EarlyStopping(
-                       monitor=f"{dparams['METRIC']['monitor_metric_name']}/mae", **dparams['EARLY_STOPPING'])
-                   ],
+        **dparams['TRAINER'], **config['TRAINER'],
+        callbacks=callbacks,
         logger=logger)
 
     trainer.fit(model, dm)
-    result = trainer.test(model, dm, ckpt_path='best')
 
 
 def test_model(dataset, dparams):
@@ -68,13 +70,12 @@ def test_model(dataset, dparams):
     with open(os.path.join(checkpoint_dir, 'cluster.npy'), 'rb') as f:
         cluster_label = np.load(f)
 
-    seq_len = np.max(
-        [hparams['HIGH_RES_NET']['seq_len'], hparams['LOW_RES_NET']['seq_len']])
     dm = data_load(dataset, **dparams['DATA'],
-                   **hparams['DATA'], test_on_time=dparams['TEST']['on_time'], seq_len=seq_len)
+                   **hparams['DATA'], test_on_time=dparams['TEST']['on_time'])
 
     checkpoint = os.path.join(checkpoint_dir+"/checkpoints",
                               dparams['TEST']['checkpoint'][dataset]['file_name'])
+
     model = TwoResNetSupervisor.load_from_checkpoint(
         checkpoint, dparams=dparams, scaler=dm.get_scaler(),
         input_dim=dm.get_input_dim(),
@@ -84,7 +85,8 @@ def test_model(dataset, dparams):
                       callbacks=[RichProgressBar()],
                       enable_checkpointing=False,
                       logger=False)
-    result = trainer.test(model, dm)
+    trainer.test(model, dm)
+    return model
 
 
 if __name__ == '__main__':
@@ -93,7 +95,7 @@ if __name__ == '__main__':
 
     # Program specific args
     parser.add_argument("--config", type=str,
-                        default="data/model/tworesnet.yaml", help="Configuration file path")
+                        default="data/config/training.yaml", help="Configuration file path")
     parser.add_argument("--dataset", type=str,
                         default="la", help="name of the dataset. it should be either la or bay.",
                         choices=['la', 'bay'])
@@ -113,6 +115,7 @@ if __name__ == '__main__':
         config = yaml.load(f, yaml.FullLoader)
 
     if args.train:
-        train_model(args.dataset, config['NONPARAMS'], config['HPARAMS'])
+        train_model(config['HPARAMS'], args.dataset, config['NONPARAMS'])
     elif args.test:
-        test_model(args.dataset, config['NONPARAMS'])
+        model = test_model(args.dataset, config)
+        model.print_test_result()

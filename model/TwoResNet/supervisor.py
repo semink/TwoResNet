@@ -5,30 +5,20 @@ import os
 from model.TwoResNet.model import TwoResNet
 from lib.utils import masked_MAE, masked_RMSE, masked_MAPE
 import pytorch_lightning as pl
-import torch.nn.functional as F
+
+from model.RNN.model import Teacher
+from model import const
 
 
 class Cluster:
     def __init__(self, label):
         self.label = label
-        self.A = self.get_indicator_matrix()
         self.num_clusters = int(np.max(self.label)+1)
 
     def get_indicator_matrix(self):
-        A = (self.label[:, None] == np.arange(
+        I = (self.label[:, None] == np.arange(
             0, np.max(self.label)+1)).astype(int).T
-        return torch.tensor(A).float()
-
-    def downscale(self, input):
-        DA = F.normalize(self.A, p=1, dim=1)
-        mean = torch.einsum('...ns, cn-> ...cs', input,
-                            DA.type_as(input))
-        return mean
-
-    def upscale(self, input):
-        spread = torch.einsum('...cs, nc-> ...ns', input,
-                              self.A.T.type_as(input))
-        return spread
+        return torch.tensor(I).float()
 
 
 class Supervisor(pl.LightningModule):
@@ -42,31 +32,31 @@ class Supervisor(pl.LightningModule):
         # data set
         self.standard_scaler = scaler
         self.cluster_handler = Cluster(cluster_label)
-        self.tf_high_resolution = bool(
-            self._tf_kwargs.get('high_resolution_model', False))
-        self.tf_low_resolution = bool(
-            self._tf_kwargs.get('low_resolution_model', False))
+
+        # Teacher forcing
+        self.dummy_teacher = Teacher(**self._tf_kwargs)
+        self.teachers = dict(highresnet=Teacher(**self._tf_kwargs) if bool(
+            self._tf_kwargs.get('high_resolution_model', False)) else None,
+            lowresnet=Teacher(**self._tf_kwargs) if bool(
+            self._tf_kwargs.get('low_resolution_model', False)) else None)
+
+        self.pred_horizon = hparams['DATA']['horizon']
 
         # setup model
-        self.model = TwoResNet(
-            adj_mx, self.cluster_handler, self._HighResNet_kwargs, self._LowResNet_kwargs,
-            horizon=hparams['DATA']['horizon'], input_dim=input_dim)
-        self.monitor_metric_name = self._metric_kwargs['monitor_metric_name']
-        self.training_metric_name = self._metric_kwargs['training_metric_name']
+        self.model = TwoResNet(in_feat=input_dim,
+                               LowResNet_kwargs={
+                                   **self._LowResNet_kwargs, 'I': self.cluster_handler.get_indicator_matrix()},
+                               HighResNet_kwargs={**self._HighResNet_kwargs, 'A': adj_mx})
 
         # optimizer setting
-        seq_len = np.max(
-            [self._HighResNet_kwargs['seq_len'], self._LowResNet_kwargs['seq_len']])
         self.example_input_array = torch.rand(
-            hparams['DATA']['batch_size'], input_dim, adj_mx.size(0), seq_len)
-
-        # teacher forcing
-        self.sampling_p = lambda epoch: self._compute_sampling_threshold(
-            epoch, self._tf_kwargs['half_life_epoch'], self._tf_kwargs['slope_at_half'])
+            hparams['DATA']['batch_size'], input_dim, adj_mx.size(0), hparams['DATA']['seq_len'])
 
         self.save_hyperparameters('hparams')
 
     def on_train_start(self):
+        self.monitor_metric_name = self._metric_kwargs['monitor_metric_name']
+        self.training_metric_name = self._metric_kwargs['training_metric_name']
         self.logger.log_hyperparams(
             self.hparams.hparams, {
                 f'{self.monitor_metric_name}/mae': 0})
@@ -77,7 +67,7 @@ class Supervisor(pl.LightningModule):
             np.save(f, self.cluster_handler.label)
 
     def forward(self, x):
-        y, _ = self.model(x)
+        y, _ = self.model(x, self.pred_horizon)
         return y
 
     def validation_step(self, batch, idx):
@@ -86,35 +76,60 @@ class Supervisor(pl.LightningModule):
         return {'true': y, 'pred': pred}
 
     def validation_epoch_end(self, outputs):
-        true = torch.cat([output['true'] for output in outputs], dim=0)
-        pred = torch.cat([output['pred'] for output in outputs], dim=0)
-        losses = self._compute_all_loss(true, pred, dim=(0, 1, 2, 3))
-        loss = {'mae': losses[0],
-                'rmse': losses[1],
-                'mape': losses[2]}
+        true = torch.cat([output['true']
+                          for output in outputs], dim=const.BATCH_DIM)
+        pred = torch.cat([output['pred']
+                          for output in outputs], dim=const.BATCH_DIM)
+        loss = self._compute_all_loss(true, pred)
         for metric in loss:
             self.log_dict(
-                {f'{self.monitor_metric_name}/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
+                {f'{self._metric_kwargs["monitor_metric_name"]}/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
+        self.log_dict({f'{self._metric_kwargs["monitor_metric_name"]}/combine':
+                       torch.tensor([loss[metric] for metric in loss]).sum(), "step": float(self.current_epoch)}, prog_bar=True)
+
+    def update_teachers(self, x_last, answer, stage):
+        # update lowresnet teacher
+        if self.teachers['lowresnet'] is not None:
+            self.teachers['lowresnet'].update(
+                hint=self.model.lowresnet.downscale(answer), stage=stage)
+
+        # update highresnet teacher
+        if self.teachers['highresnet'] is not None:
+            answer_agg = self.model.lowresnet.downscale(
+                torch.cat([x_last, answer], dim=const.TEMPORAL_DIM))
+            answer_diff_agg = torch.diff(answer_agg, dim=const.TEMPORAL_DIM)
+            answer_diff_coarse = self.model.lowresnet.upscale(answer_diff_agg)
+            self.teachers['highresnet'].update(
+                hint=answer+answer_diff_coarse, stage=stage)
 
     def training_step(self, batch, idx):
         epoch_float = float(self.current_epoch) + float(idx) / \
             float(self.trainer.num_training_batches)
-        sampling_p = self.sampling_p(epoch_float)
 
         x, y = batch
+        horizon = y.size(const.TEMPORAL_DIM)
 
-        HighResNet_tf_p = sampling_p if self.tf_high_resolution else 0
-        def LowResNet_tf(): return self.teacher_forcing(
-            sampling_p, self.tf_low_resolution)
-        output, output_general = self.model(
-            x, y, HighResNet_tf_p, LowResNet_tf)
+        # update teachers
+        self.update_teachers(
+            x_last=x[..., [0], :, :][..., [-1]], answer=y, stage=epoch_float)
+        # feedforward
+        output, output_coarse = self.model(x, horizon, self.teachers)
+
+        # highresnet loss
         loss_detail = self._compute_loss(y, output)
-        y_general = self.model.cluster_handler.downscale(y)
-        loss_agg = self._compute_loss(y_general, output_general)
+
+        # lowresnet loss
+        y_agg = self.model.lowresnet.downscale(y)
+        output_agg = self.model.lowresnet.downscale(output_coarse)
+        loss_agg = self._compute_loss(y_agg, output_agg)
+
+        # log
         self.log(f'{self.training_metric_name}/mae',
                  loss_detail, prog_bar=True)
         self.log(f'{self.training_metric_name}/mae_agg',
                  loss_agg, prog_bar=True)
+
+        # total loss
         loss = loss_detail + \
             self._optim_kwargs['low_resol_loss_weight'] * loss_agg
         return loss
@@ -125,33 +140,36 @@ class Supervisor(pl.LightningModule):
         return {'true': y, 'pred': pred}
 
     def test_epoch_end(self, outputs):
-        true = torch.cat([output['true'] for output in outputs], dim=0)
-        pred = torch.cat([output['pred'] for output in outputs], dim=0)
-        losses = self._compute_all_loss(true, pred)
-        loss = {'mae': losses[0],
-                'rmse': losses[1],
-                'mape': losses[2]}
+        true = torch.cat([output['true']
+                          for output in outputs], dim=const.BATCH_DIM)
+        pred = torch.cat([output['pred']
+                          for output in outputs], dim=const.BATCH_DIM)
+        loss = self._compute_all_loss(true, pred, agg_dim=(
+            const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM))
 
         # error for each horizon
-        for h in range(len(loss["mae"])):
-            print(f"Horizon {h+1} ({5*(h+1)} min) - ", end="")
-            print(f"MAE: {loss['mae'][h]:.2f}", end=", ")
-            print(f"RMSE: {loss['rmse'][h]:.2f}", end=", ")
-            print(f"MAPE: {loss['mape'][h]:.2f}")
-            if self.logger:
-                for m in loss:
-                    self.logger.experiment.add_scalar(
-                        f"Test/{m}", loss[m][h], h)
-
-        # aggregated error
-        agg_losses = self._compute_all_loss(true, pred, dim=(0, 1, 2, 3))
-        print("Aggregation - ", end="")
-        print(f"MAE: {agg_losses[0]:.2f}", end=", ")
-        print(f"RMSE: {agg_losses[1]:.2f}", end=", ")
-        print(f"MAPE: {agg_losses[2]:.2f}")
-
         self.pred_results = pred.cpu()
         self.true_values = true.cpu()
+        self.test_loss = {metric: loss[metric].cpu() for metric in loss}
+        self.agg_losses = self._compute_all_loss(
+            self.true_values, self.pred_results)
+
+    def print_test_result(self):
+        for h in range(len(self.test_loss["mae"])):
+            print(f"Horizon {h+1} ({5*(h+1)} min) - ", end="")
+            print(f"MAE: {self.test_loss['mae'][h]:.2f}", end=", ")
+            print(f"RMSE: {self.test_loss['rmse'][h]:.2f}", end=", ")
+            print(f"MAPE: {self.test_loss['mape'][h]:.2f}")
+            if self.logger:
+                for m in self.test_loss:
+                    self.logger.experiment.add_scalar(
+                        f"Test/{m}", self.test_loss[m][h], h)
+
+        # aggregated error
+        print("Aggregation - ", end="")
+        print(f"MAE: {self.agg_losses['mae']:.2f}", end=", ")
+        print(f"RMSE: {self.agg_losses['rmse']:.2f}", end=", ")
+        print(f"MAPE: {self.agg_losses['mape']:.2f}")
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
@@ -161,12 +179,12 @@ class Supervisor(pl.LightningModule):
         milestones = self._get_milestones()
         for i, m in enumerate(milestones):
             self.logger.experiment.add_scalar(
-                f'{self.training_metric_name}/milestones', m, i)
+                f'{self._metric_kwargs["training_metric_name"]}/milestones', m, i)
 
         for epoch in range(milestones[-1]):
-            sampling_p = self.sampling_p(epoch)
+            generosity = self.dummy_teacher.generosity(epoch)
             self.logger.experiment.add_scalar(
-                f'{self.training_metric_name}/teacher_forcing_probability', sampling_p, epoch)
+                f'{self._metric_kwargs["training_metric_name"]}/teacher_forcing_probability', generosity, epoch)
         lr_scheduler = {'scheduler': torch.optim.lr_scheduler.MultiStepLR(
             optimizer, gamma=self._optim_kwargs['multisteplr']['gamma'], milestones=milestones),
             'name': 'learning_rate'}
@@ -175,9 +193,9 @@ class Supervisor(pl.LightningModule):
 
     def configure_gradient_clipping(self, optimizer, optimizer_idx, gradient_clip_val, gradient_clip_algorithm):
         torch.nn.utils.clip_grad_norm_(
-            self.model.high_resolution_block.parameters(), gradient_clip_val)
+            self.model.highresnet.parameters(), gradient_clip_val)
         torch.nn.utils.clip_grad_norm_(
-            self.model.low_resolution_block.parameters(), gradient_clip_val)
+            self.model.lowresnet.parameters(), gradient_clip_val)
 
     def _get_milestones(self):
         init = self._epoch_reach_to_p(self._tf_kwargs['milestone_start_p'])
@@ -187,30 +205,18 @@ class Supervisor(pl.LightningModule):
 
     def _epoch_reach_to_p(self, p):
         for epoch in range(1000):
-            if self.sampling_p(epoch) < p:
+            if self.dummy_teacher.generosity(epoch) < p:
                 break
         return epoch-1
 
-    @ staticmethod
-    def _compute_sampling_threshold(epoch, half_life_epoch=13.33, slope_at_half=-0.1425525):
-        c = np.exp(-4*half_life_epoch*slope_at_half)
-        x = c/half_life_epoch * np.log(c)
-        return c / (c + np.exp((epoch*x)/c))
-
-    @ staticmethod
-    def teacher_forcing(sampling_p, curricular_learning_flag):
-        go_flag = (torch.rand(1).item() < sampling_p) & (
-            curricular_learning_flag)
-        return go_flag
-
-    def _compute_loss(self, y_true, y_predicted, dim=(0, 1, 2, 3)):
+    def _compute_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM)):
         y_predicted = self.standard_scaler.inverse_transform(y_predicted)
         y_true = self.standard_scaler.inverse_transform(y_true)
-        return masked_MAE(y_predicted, y_true, dim=dim)
+        return masked_MAE(y_predicted, y_true, agg_dim=agg_dim)
 
-    def _compute_all_loss(self, y_true, y_predicted, dim=(0, 1, 2)):
+    def _compute_all_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM)):
         y_predicted = self.standard_scaler.inverse_transform(y_predicted)
         y_true = self.standard_scaler.inverse_transform(y_true)
-        return (masked_MAE(y_predicted, y_true, dim=dim),
-                masked_RMSE(y_predicted, y_true, dim=dim),
-                masked_MAPE(y_predicted, y_true, dim=dim))
+        return {'mae': masked_MAE(y_predicted, y_true, agg_dim=agg_dim),
+                'rmse': masked_RMSE(y_predicted, y_true, agg_dim=agg_dim),
+                'mape': masked_MAPE(y_predicted, y_true, agg_dim=agg_dim)}

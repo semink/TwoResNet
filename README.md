@@ -52,18 +52,18 @@ In case error occurs, try to install PyTorch according to your local environment
 
 ## 2. Model training
 
-> You can find tensorboard logs for pretrained models [here](https://tensorboard.dev/experiment/q2igppHyRV2HqUgPA74x2w/).
+> You can find tensorboard logs for pretrained models [here](https://tensorboard.dev/experiment/d6JvEPNhQvOmmDVfbP2WZw/).
 
 ### 2.1. METR-LA
 
 ```bash
-python run.py --config=data/model/tworesnet.yaml --train --dataset=la
+python run.py --config=data/config/training.yaml --train --dataset=la
 ```
 
 ### 2.2. PEMS-BAY
 
 ```bash
-python run.py --config=data/model/tworesnet.yaml --train --dataset=bay
+python run.py --config=data/config/training.yaml --train --dataset=bay
 ```
 
 ## 3. Test
@@ -71,49 +71,49 @@ python run.py --config=data/model/tworesnet.yaml --train --dataset=bay
 ### 3.1. METR-LA
 
 ```bash
-python run.py --config=data/model/tworesnet.yaml --test --dataset=la
+python run.py --config=data/config/test.yaml --test --dataset=la
 ```
 
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 2.24, RMSE: 3.85, MAPE: 5.40
-Horizon 2 (10 min) - MAE: 2.49, RMSE: 4.57, MAPE: 6.19
-Horizon 3 (15 min) - MAE: 2.65, RMSE: 5.06, MAPE: 6.78
-Horizon 4 (20 min) - MAE: 2.79, RMSE: 5.46, MAPE: 7.27
-Horizon 5 (25 min) - MAE: 2.91, RMSE: 5.79, MAPE: 7.71
-Horizon 6 (30 min) - MAE: 3.02, RMSE: 6.08, MAPE: 8.09
-Horizon 7 (35 min) - MAE: 3.11, RMSE: 6.33, MAPE: 8.42
-Horizon 8 (40 min) - MAE: 3.19, RMSE: 6.55, MAPE: 8.71
-Horizon 9 (45 min) - MAE: 3.27, RMSE: 6.74, MAPE: 8.98
-Horizon 10 (50 min) - MAE: 3.34, RMSE: 6.91, MAPE: 9.23
-Horizon 11 (55 min) - MAE: 3.40, RMSE: 7.07, MAPE: 9.44
-Horizon 12 (60 min) - MAE: 3.47, RMSE: 7.22, MAPE: 9.66
-Aggregation - MAE: 2.99, RMSE: 6.06, MAPE: 7.99
+Horizon 1 (5 min) - MAE: 2.24, RMSE: 3.85, MAPE: 5.36
+Horizon 2 (10 min) - MAE: 2.49, RMSE: 4.58, MAPE: 6.27
+Horizon 3 (15 min) - MAE: 2.66, RMSE: 5.09, MAPE: 6.89
+Horizon 4 (20 min) - MAE: 2.80, RMSE: 5.48, MAPE: 7.41
+Horizon 5 (25 min) - MAE: 2.91, RMSE: 5.80, MAPE: 7.84
+Horizon 6 (30 min) - MAE: 3.02, RMSE: 6.09, MAPE: 8.23
+Horizon 7 (35 min) - MAE: 3.10, RMSE: 6.32, MAPE: 8.55
+Horizon 8 (40 min) - MAE: 3.18, RMSE: 6.53, MAPE: 8.84
+Horizon 9 (45 min) - MAE: 3.25, RMSE: 6.71, MAPE: 9.09
+Horizon 10 (50 min) - MAE: 3.31, RMSE: 6.86, MAPE: 9.30
+Horizon 11 (55 min) - MAE: 3.36, RMSE: 7.00, MAPE: 9.49
+Horizon 12 (60 min) - MAE: 3.41, RMSE: 7.12, MAPE: 9.65
+Aggregation - MAE: 2.98, RMSE: 6.03, MAPE: 8.08
 ```
 
 ### 3.2. PEMS-BAY
 
 ```bash
-python run.py --config=data/model/tworesnet.yaml --test --dataset=bay
+python run.py --config=data/config/test.yaml --test --dataset=bay
 ```
 
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.55, MAPE: 1.68
-Horizon 2 (10 min) - MAE: 1.13, RMSE: 2.20, MAPE: 2.26
-Horizon 3 (15 min) - MAE: 1.30, RMSE: 2.71, MAPE: 2.70
-Horizon 4 (20 min) - MAE: 1.43, RMSE: 3.11, MAPE: 3.04
-Horizon 5 (25 min) - MAE: 1.53, RMSE: 3.42, MAPE: 3.32
-Horizon 6 (30 min) - MAE: 1.62, RMSE: 3.67, MAPE: 3.56
-Horizon 7 (35 min) - MAE: 1.69, RMSE: 3.87, MAPE: 3.77
-Horizon 8 (40 min) - MAE: 1.74, RMSE: 4.03, MAPE: 3.95
-Horizon 9 (45 min) - MAE: 1.79, RMSE: 4.16, MAPE: 4.10
-Horizon 10 (50 min) - MAE: 1.84, RMSE: 4.27, MAPE: 4.24
-Horizon 11 (55 min) - MAE: 1.88, RMSE: 4.37, MAPE: 4.35
-Horizon 12 (60 min) - MAE: 1.92, RMSE: 4.46, MAPE: 4.47
-Aggregation - MAE: 1.56, RMSE: 3.60, MAPE: 3.45
+Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.56, MAPE: 1.67
+Horizon 2 (10 min) - MAE: 1.12, RMSE: 2.22, MAPE: 2.26
+Horizon 3 (15 min) - MAE: 1.30, RMSE: 2.73, MAPE: 2.70
+Horizon 4 (20 min) - MAE: 1.43, RMSE: 3.13, MAPE: 3.06
+Horizon 5 (25 min) - MAE: 1.53, RMSE: 3.44, MAPE: 3.35
+Horizon 6 (30 min) - MAE: 1.61, RMSE: 3.69, MAPE: 3.59
+Horizon 7 (35 min) - MAE: 1.68, RMSE: 3.88, MAPE: 3.79
+Horizon 8 (40 min) - MAE: 1.74, RMSE: 4.04, MAPE: 3.97
+Horizon 9 (45 min) - MAE: 1.78, RMSE: 4.17, MAPE: 4.12
+Horizon 10 (50 min) - MAE: 1.83, RMSE: 4.28, MAPE: 4.25
+Horizon 11 (55 min) - MAE: 1.86, RMSE: 4.37, MAPE: 4.36
+Horizon 12 (60 min) - MAE: 1.90, RMSE: 4.46, MAPE: 4.47
+Aggregation - MAE: 1.55, RMSE: 3.61, MAPE: 3.47
 ```
 
 ## 4. Citation
