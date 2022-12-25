@@ -1,6 +1,6 @@
 TRAINER:
   accelerator: gpu
-  devices: [2] 
+  devices: [0] 
 
 DATA:
   num_workers: 16
