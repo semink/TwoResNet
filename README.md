@@ -52,7 +52,7 @@ In case error occurs, try to install PyTorch according to your local environment
 
 ## 2. Model training
 
-> You can find tensorboard logs for pretrained models [here](https://tensorboard.dev/experiment/d6JvEPNhQvOmmDVfbP2WZw/).
+> You can find tensorboard logs for pretrained models [here](https://tensorboard.dev/experiment/lYEoAwmZQzyrUVT4t4Y8og/).
 
 ### 2.1. METR-LA
 
@@ -77,19 +77,19 @@ python run.py --config=data/config/test.yaml --test --dataset=la
 Result
 
 ```bash
-Horizon 1 (5 min) - MAE: 2.24, RMSE: 3.85, MAPE: 5.36
-Horizon 2 (10 min) - MAE: 2.49, RMSE: 4.58, MAPE: 6.27
-Horizon 3 (15 min) - MAE: 2.66, RMSE: 5.09, MAPE: 6.89
-Horizon 4 (20 min) - MAE: 2.80, RMSE: 5.48, MAPE: 7.41
-Horizon 5 (25 min) - MAE: 2.91, RMSE: 5.80, MAPE: 7.84
-Horizon 6 (30 min) - MAE: 3.02, RMSE: 6.09, MAPE: 8.23
-Horizon 7 (35 min) - MAE: 3.10, RMSE: 6.32, MAPE: 8.55
-Horizon 8 (40 min) - MAE: 3.18, RMSE: 6.53, MAPE: 8.84
-Horizon 9 (45 min) - MAE: 3.25, RMSE: 6.71, MAPE: 9.09
-Horizon 10 (50 min) - MAE: 3.31, RMSE: 6.86, MAPE: 9.30
-Horizon 11 (55 min) - MAE: 3.36, RMSE: 7.00, MAPE: 9.49
-Horizon 12 (60 min) - MAE: 3.41, RMSE: 7.12, MAPE: 9.65
-Aggregation - MAE: 2.98, RMSE: 6.03, MAPE: 8.08
+Horizon 1 (5 min) - MAE: 2.24, RMSE: 3.86, MAPE: 5.32
+Horizon 2 (10 min) - MAE: 2.49, RMSE: 4.60, MAPE: 6.19
+Horizon 3 (15 min) - MAE: 2.65, RMSE: 5.08, MAPE: 6.78
+Horizon 4 (20 min) - MAE: 2.79, RMSE: 5.47, MAPE: 7.29
+Horizon 5 (25 min) - MAE: 2.90, RMSE: 5.79, MAPE: 7.73
+Horizon 6 (30 min) - MAE: 3.01, RMSE: 6.07, MAPE: 8.14
+Horizon 7 (35 min) - MAE: 3.09, RMSE: 6.30, MAPE: 8.47
+Horizon 8 (40 min) - MAE: 3.17, RMSE: 6.51, MAPE: 8.78
+Horizon 9 (45 min) - MAE: 3.23, RMSE: 6.68, MAPE: 9.05
+Horizon 10 (50 min) - MAE: 3.29, RMSE: 6.83, MAPE: 9.28
+Horizon 11 (55 min) - MAE: 3.34, RMSE: 6.96, MAPE: 9.50
+Horizon 12 (60 min) - MAE: 3.39, RMSE: 7.08, MAPE: 9.71
+Aggregation - MAE: 2.97, RMSE: 6.01, MAPE: 8.02
 ```
 
 ### 3.2. PEMS-BAY
@@ -102,18 +102,18 @@ Result
 
 ```bash
 Horizon 1 (5 min) - MAE: 0.87, RMSE: 1.56, MAPE: 1.67
-Horizon 2 (10 min) - MAE: 1.12, RMSE: 2.22, MAPE: 2.26
-Horizon 3 (15 min) - MAE: 1.30, RMSE: 2.73, MAPE: 2.70
-Horizon 4 (20 min) - MAE: 1.43, RMSE: 3.13, MAPE: 3.06
-Horizon 5 (25 min) - MAE: 1.53, RMSE: 3.44, MAPE: 3.35
-Horizon 6 (30 min) - MAE: 1.61, RMSE: 3.69, MAPE: 3.59
+Horizon 2 (10 min) - MAE: 1.12, RMSE: 2.21, MAPE: 2.26
+Horizon 3 (15 min) - MAE: 1.30, RMSE: 2.73, MAPE: 2.72
+Horizon 4 (20 min) - MAE: 1.43, RMSE: 3.14, MAPE: 3.08
+Horizon 5 (25 min) - MAE: 1.53, RMSE: 3.45, MAPE: 3.37
+Horizon 6 (30 min) - MAE: 1.61, RMSE: 3.69, MAPE: 3.60
 Horizon 7 (35 min) - MAE: 1.68, RMSE: 3.88, MAPE: 3.79
-Horizon 8 (40 min) - MAE: 1.74, RMSE: 4.04, MAPE: 3.97
-Horizon 9 (45 min) - MAE: 1.78, RMSE: 4.17, MAPE: 4.12
-Horizon 10 (50 min) - MAE: 1.83, RMSE: 4.28, MAPE: 4.25
-Horizon 11 (55 min) - MAE: 1.86, RMSE: 4.37, MAPE: 4.36
-Horizon 12 (60 min) - MAE: 1.90, RMSE: 4.46, MAPE: 4.47
-Aggregation - MAE: 1.55, RMSE: 3.61, MAPE: 3.47
+Horizon 8 (40 min) - MAE: 1.73, RMSE: 4.03, MAPE: 3.95
+Horizon 9 (45 min) - MAE: 1.78, RMSE: 4.15, MAPE: 4.09
+Horizon 10 (50 min) - MAE: 1.82, RMSE: 4.25, MAPE: 4.21
+Horizon 11 (55 min) - MAE: 1.85, RMSE: 4.33, MAPE: 4.31
+Horizon 12 (60 min) - MAE: 1.89, RMSE: 4.41, MAPE: 4.40
+Aggregation - MAE: 1.55, RMSE: 3.59, MAPE: 3.45
 ```
 
 ## 4. Citation

@@ -22,5 +22,6 @@ class TwoResNet(nn.Module):
                                           ybar], dim=const.TEMPORAL_DIM), dim=const.TEMPORAL_DIM)
         y = self.highresnet(x, horizon=horizon, offset=ybar_diff,
                             teacher=teachers['highresnet'])
-        return y, ybar
+        out = (y, ybar) if self.training else y
+        return out
         

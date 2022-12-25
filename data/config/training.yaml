@@ -21,16 +21,21 @@ NONPARAMS:
     training_metric_name: 'training'
     loss_metric: 'mae'
 
+  EARLY_STOPPING:
+    divergence_threshold: 2.8
+    monitor: 'validation/mae'
+
 # This HPARAMS sections are recorded as hyperparameters in tensorboard!
 HPARAMS:
   DATA:
     batch_size: 32
-    cluster_info:
-      K: 5
-      alpha: 0.4556550085278627
+    adj_info:
       sparcity:
         corr: 0.9015075698183189
         prox: 0.8235293538393196
+      alpha: 0.4556550085278627
+    cluster_info:
+      K: 5
     dow: true
     horizon: 12
     seq_len: 12

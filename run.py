@@ -16,17 +16,22 @@ from lib import utils
 
 import shortuuid
 
-def data_load(dataset, batch_size=32, seq_len=12, horizon=12, cluster_info=dict(K=3, alpha=0.5), time_feat_mode='sinusoidal', 
+import torch
+from model import const
+
+
+def data_load(dataset, batch_size=32, seq_len=12, horizon=12, adj_info=dict(sparcity=dict(corr=0.9, prox=0.9)), cluster_info=dict(K=1), time_feat_mode='sinusoidal',
               dow=True, test_on_time=None, num_workers=os.cpu_count(), **kwargs):
     if test_on_time is None:
         test_on_time = (('00:00', '23:55'),)
     dm = DataModule(dataset, batch_size, seq_len,
-                    horizon, num_workers, cluster_info, time_feat_mode, dow, test_on_time)
+                    horizon, num_workers, adj_info, cluster_info, time_feat_mode, dow, test_on_time)
     dm.prepare_data()
     return dm
 
 
-def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additional_callbacks=None):
+def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additional_callbacks=None,
+                filename_placeholder=''):
     dm = data_load(dataset, **dparams['DATA'], **config['DATA'])
 
     model = TwoResNetSupervisor(hparams=config, dparams=dparams,
@@ -40,7 +45,7 @@ def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additio
     logger = TensorBoardLogger(
         **dparams['LOG'],
         default_hp_metric=False,
-        version=shortuuid.uuid())
+        version=f'{filename_placeholder}_{shortuuid.uuid()}_K{config["DATA"]["cluster_info"]["K"]}')
 
     if checkpoint_dir:
         dparams['TRAINER']["resume_from_checkpoint"] = os.path.join(
@@ -50,7 +55,8 @@ def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additio
                  RichProgressBar(),
                  LearningRateMonitor(logging_interval='epoch'),
                  ModelCheckpoint(filename='best',
-                                 monitor=f"{dparams['METRIC']['monitor_metric_name']}/{dparams['METRIC']['loss_metric']}", save_last=True)]
+                                 monitor=f"{dparams['METRIC']['monitor_metric_name']}/{dparams['METRIC']['loss_metric']}",
+                                 save_last=True)]
 
     if additional_callbacks:
         [callbacks.append(callback) for callback in additional_callbacks]
@@ -62,7 +68,7 @@ def train_model(config, dataset=None, dparams=None, checkpoint_dir=None, additio
     trainer.fit(model, dm)
 
 
-def test_model(dataset, dparams):
+def load_essentials(dataset, dparams):
     checkpoint_dir = dparams['TEST']['checkpoint'][dataset]['dir_path']
     with open(os.path.join(checkpoint_dir, 'hparams.yaml')) as f:
         hparams = yaml.load(f, yaml.FullLoader)['hparams']
@@ -76,7 +82,7 @@ def test_model(dataset, dparams):
     checkpoint = os.path.join(checkpoint_dir+"/checkpoints",
                               dparams['TEST']['checkpoint'][dataset]['file_name'])
 
-    model = TwoResNetSupervisor.load_from_checkpoint(
+    supervisor = TwoResNetSupervisor.load_from_checkpoint(
         checkpoint, dparams=dparams, scaler=dm.get_scaler(),
         input_dim=dm.get_input_dim(),
         adj_mx=dm.get_adj(), cluster_label=cluster_label)
@@ -85,8 +91,21 @@ def test_model(dataset, dparams):
                       callbacks=[RichProgressBar()],
                       enable_checkpointing=False,
                       logger=False)
-    trainer.test(model, dm)
-    return model
+    # trainer.test(model, dm)
+    return {'supervisor': supervisor, 'datamodule': dm, 'trainer': trainer}
+
+
+def test_model(dataset, dparams):
+    essentials = load_essentials(dataset, dparams)
+    essentials['trainer'].test(
+        essentials['supervisor'], essentials['datamodule'])
+
+
+def predict_model(dataset, dparams):
+    essentials = load_essentials(dataset, dparams)
+    predictions = essentials['trainer'].predict(
+        essentials['supervisor'], essentials['datamodule'])
+    return torch.cat(predictions, dim=const.BATCH_DIM)
 
 
 if __name__ == '__main__':
@@ -117,5 +136,4 @@ if __name__ == '__main__':
     if args.train:
         train_model(config['HPARAMS'], args.dataset, config['NONPARAMS'])
     elif args.test:
-        model = test_model(args.dataset, config)
-        model.print_test_result()
+        test_model(args.dataset, config)

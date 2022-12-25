@@ -1,12 +1,13 @@
 hparams:
   DATA:
-    batch_size: 32
-    cluster_info:
-      K: 5
-      alpha: 0.4556550085278627
+    adj_info:
+      alpha: 0.75
       sparcity:
         corr: 0.9015075698183189
         prox: 0.8235293538393196
+    batch_size: 32
+    cluster_info:
+      K: 5
     dow: true
     horizon: 12
     seq_len: 12
