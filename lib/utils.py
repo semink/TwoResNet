@@ -31,6 +31,15 @@ def double_transition_matrix(adj_mx):
     return supports
 
 
+def normalize_by_row(mat):
+    d = np.array(mat.sum(1))
+    d_inv = np.power(d, -1).flatten()
+    d_inv[np.isinf(d_inv)] = 0.
+    d_mat_inv = sp.diags(d_inv)
+    new_mat = d_mat_inv.dot(mat)
+    return new_mat
+
+
 def calculate_random_walk_matrix(adj_mx):
     d = np.array(adj_mx.sum(1))
     d_inv = np.power(d, -1).flatten()
@@ -166,6 +175,7 @@ def get_signal_distance(df):
 
 
 def gaussian_kernel(distance, sparcity=0.9, patience=1):
+    distance = distance.values
     nan_portion = get_sparcity(distance, np.nan)
     threshold_cut = np.nanquantile(
         distance, (1-sparcity)/(1-nan_portion) if nan_portion < sparcity else 1)
@@ -182,18 +192,32 @@ def get_mix_similarity(df_raw, distance_km, sparcity=dict(prox=0.9, corr=0.9), p
                        method='addition', **kwargs):
     sensors = df_raw.columns.astype(int)
     distance_km = distance_km.pivot(
-        index='from', columns='to', values='distance').loc[sensors][sensors]
+        index='to', columns='from', values='distance').loc[sensors][sensors]
+    # distance_km = distance_km.loc[sensors][sensors]
     physical_similarity = distance_km
+
     signal_similarity = get_signal_distance(df_raw)
+    # signal_similarity = df_raw
+
+    signal_similarity.index = signal_similarity.index.astype(
+        physical_similarity.index.dtype)
+    signal_similarity.columns = signal_similarity.columns.astype(
+        physical_similarity.columns.dtype)
+
     if method == 'addition':
-        mix_similarity = alpha * gaussian_kernel(physical_similarity.values,
-                                                 sparcity=sparcity['prox'], patience=patience) + (1 - alpha) * gaussian_kernel(signal_similarity.values,
-                                                                                                                               sparcity=sparcity['corr'], patience=patience)
+        mix_similarity = alpha * gaussian_kernel(physical_similarity,
+                                                 sparcity=sparcity['prox'],
+                                                 patience=patience) + (1 - alpha) * gaussian_kernel(signal_similarity,
+                                                                                                    sparcity=sparcity['corr'],
+                                                                                                    patience=patience)
     elif method == 'multiplication':
-        mix_similarity = gaussian_kernel(physical_similarity.values,
-                                         sparcity=sparcity['prox'], patience=patience) * gaussian_kernel(signal_similarity.values,
+        mix_similarity = gaussian_kernel(physical_similarity,
+                                         sparcity=sparcity['prox'], patience=patience) * gaussian_kernel(signal_similarity,
                                                                                                          sparcity=sparcity['corr'], patience=patience)
-    return mix_similarity, sensors
+
+    mix_similarity = pd.DataFrame(
+        mix_similarity, index=sensors, columns=sensors)
+    return mix_similarity
 
 
 def get_sparcity(mat, nan_val=0.0):
@@ -204,12 +228,24 @@ def get_sparcity(mat, nan_val=0.0):
     return zeros/mat.size
 
 
-def clustering(mix_similarity, sensors, K=5,  **kwargs):
+def clustering(mix_similarity, K=5,  **kwargs):
     # 2. Spectral clustering
     clustering = SpectralClustering(n_clusters=K,
                                     assign_labels='discretize',
-                                    random_state=0, affinity='precomputed').fit(mix_similarity)
+                                    random_state=0, affinity='precomputed').fit(mix_similarity.values)
 
+    sensors = mix_similarity.index
     new_df = pd.DataFrame(data=clustering.labels_,
                           index=sensors)
     return new_df
+
+
+def reform(y, input_df, horizon):
+    x_tidx = input_df.index
+    dt = x_tidx[1] - x_tidx[0]
+    dts = pd.timedelta_range(start=dt, end=dt * horizon, freq=dt)
+    time_index = dts + x_tidx[-1]
+
+    df = pd.DataFrame(y.detach().numpy().T,
+                      columns=input_df.columns, index=time_index)
+    return df

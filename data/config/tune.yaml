@@ -23,6 +23,7 @@ NONPARAMS:
     accelerator: gpu
     devices: [0] 
     max_epochs: 40
+    
 
   DATA:
     num_workers: 16
@@ -44,12 +45,13 @@ HPARAMS:
     horizon: 12
     seq_len: 12
     time_feat_mode: sinusoidal
-    cluster_info:
-      K: tune.randint(1, 10)
+    adj_info:
       alpha: tune.uniform(0.2, 0.8)
       sparcity:
         corr: tune.uniform(0.8, 0.95)
         prox: tune.uniform(0.8, 0.95)
+    cluster_info:
+      K: tune.randint(1, 10)
   
   HIGH_RES_NET:
     gcn_order: tune.choice([1, 2])

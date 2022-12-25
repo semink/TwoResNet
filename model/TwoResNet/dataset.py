@@ -6,6 +6,27 @@ import numpy as np
 from lib import utils
 import pandas as pd
 from torch.utils.data import DataLoader, Subset
+from geopy.distance import geodesic
+
+
+def encode_features(df, scaler):
+    # df must has time index, and sensors as columns
+    t = df.index
+    num_sensors = df.shape[1]
+    additional_features = []
+    time_ind = (
+        t.values - t.values.astype("datetime64[D]")) / np.timedelta64(1, "D")
+    theta = time_ind * 2 * np.pi
+    cos = np.tile(np.cos(theta)[np.newaxis, :], (num_sensors, 1))
+    sine = np.tile(np.sin(theta)[np.newaxis, :], (num_sensors, 1))
+    additional_features.append(cos)
+    additional_features.append(sine)
+
+    dow = np.tile((t.day_of_week > 4).astype(float).T, (num_sensors, 1))
+    additional_features.append(dow)
+    x = torch.stack([torch.tensor(feature) for feature in (
+        scaler.transform(df.T.values), *additional_features)], dim=0).float()
+    return x
 
 
 class TimeSeriesDataset(torch.utils.data.Dataset):
@@ -67,7 +88,8 @@ class TimeSeriesDataset(torch.utils.data.Dataset):
 
 class DataModule(LightningDataModule):
     def __init__(self, dataset: str = "bay", batch_size: int = 32,
-                 seq_len=24, horizon=12, num_workers=1, cluster_info=None, time_feat_mode='sinusoidal', dow=True,
+                 seq_len=24, horizon=12, num_workers=1, adj_info=dict(sparcity=dict(corr=0.9015075698183189, prox=0.8235293538393196)),
+                 cluster_info=None, time_feat_mode='sinusoidal', dow=True,
                  test_on_time=(('00:00', '23:55'), )):
         super(DataModule, self).__init__()
         self.dataset = dataset
@@ -81,6 +103,7 @@ class DataModule(LightningDataModule):
         self.adj = None
         self.train_t, self.valid_t, self.test_t = None, None, None
         self.cluster_info = cluster_info
+        self.adj_info = adj_info
         self.time_feat_mode = time_feat_mode
         self.dow = dow
         self.test_on_time = test_on_time
@@ -114,17 +137,32 @@ class DataModule(LightningDataModule):
     def set_cluster(self, format=None, override=None, force=False):
         if self.cluster is None or force:
             train_df, _, _ = utils.split_data(df=self.df)
+
             distance_km = pd.read_csv(
                 f'{utils.PROJECT_ROOT}/data/distance_{self.dataset}.csv')
 
-            if override is not None:
-                mix_similarity, sensors = utils.get_mix_similarity(
-                    train_df, distance_km, **self.cluster_info, **override)
-            else:
-                mix_similarity, sensors = utils.get_mix_similarity(
-                    train_df, distance_km, **self.cluster_info)
+            # name_dict = {'la': 'METR-LA', 'bay': 'PEMS-BAY'}
+            # meta_df = pd.read_csv(
+            # f'{utils.PROJECT_ROOT}/data/{name_dict[self.dataset]}-META.csv', index_col=0)
+            # coords = meta_df[['Latitude', 'Longitude']].values
+            # distance_km = pd.DataFrame([[geodesic(a, b).km for a in coords]
+            #                             for b in coords], index=meta_df.index, columns=meta_df.index)
 
-            cluster = utils.clustering(mix_similarity, sensors)
+            corr = pd.read_csv(
+                f'{utils.PROJECT_ROOT}/data/corr_inv_{self.dataset}.csv', index_col=0)
+            if override is not None:
+                # mix_similarity = utils.get_mix_similarity(
+                #     corr, distance_km, **override)
+                mix_similarity = utils.get_mix_similarity(
+                    train_df, distance_km, **override)
+            else:
+                mix_similarity = utils.get_mix_similarity(
+                    train_df, distance_km, **self.adj_info)
+                # mix_similarity = utils.get_mix_similarity(
+                #     corr, distance_km, **self.adj_info)
+
+            cluster = utils.clustering(
+                mix_similarity, **self.cluster_info)
             cluster = cluster.loc[self.df.columns.astype(int)]
 
             return_value = cluster.T.values[0]
@@ -133,8 +171,9 @@ class DataModule(LightningDataModule):
                                             columns=['index'])
                 return_value.index = return_value.index.astype('int')
 
-            if self.cluster_info['K'] > 1:
-                self.adj = mix_similarity
+            # if self.cluster_info['K'] > 1:
+            sensors = train_df.columns.astype(int)
+            self.adj = mix_similarity.loc[sensors, sensors].values
 
             self.cluster = return_value
 
@@ -153,8 +192,7 @@ class DataModule(LightningDataModule):
         return self.df.shape[1]
 
     def get_adj(self):
-        if self.cluster_info['K'] > 1:
-            self.set_cluster()
+        self.set_cluster()
         return torch.tensor(self.adj).float()
 
     def _set_scaler(self):
@@ -183,6 +221,15 @@ class DataModule(LightningDataModule):
                                          dow=self.dow,
                                          seq_len=self.seq_len, horizon=self.horizon,
                                          between_times=self.test_on_time)
+
+    def _get_custom_dataset(self, df, seq_len=12, horizon=12):
+        ds = TimeSeriesDataset(df.values, scaler=self.scaler,
+                               t_features=utils.convert_timestamp_to_feature(
+                                   df.index),
+                               time_feat_mode=self.time_feat_mode,
+                               dow=self.dow,
+                               seq_len=seq_len, horizon=horizon)
+        return ds
 
     def get_raw_data(self):
         return self.df, self.adj
@@ -214,3 +261,8 @@ class DataModule(LightningDataModule):
         collate_fn = self._pad_with_last_sample if pad_with_last_sample else None
         return DataLoader(self.test_ds, batch_size=self.batch_size,
                           shuffle=shuffle, num_workers=self.num_workers, collate_fn=collate_fn)
+
+    def predict_dataloader(self, df, seq_len=12, horizon=12):
+        ds = self._get_custom_dataset(df, seq_len=seq_len, horizon=horizon)
+        return DataLoader(ds, batch_size=self.batch_size,
+                          shuffle=False, num_workers=self.num_workers, collate_fn=None)

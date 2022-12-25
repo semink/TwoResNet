@@ -111,3 +111,7 @@ runs/
 # models
 models/
 experiments/
+
+*.py
+!run.py
+!tune.py

@@ -43,23 +43,31 @@ class Supervisor(pl.LightningModule):
         self.pred_horizon = hparams['DATA']['horizon']
 
         # setup model
+        I = self.cluster_handler.get_indicator_matrix()
         self.model = TwoResNet(in_feat=input_dim,
                                LowResNet_kwargs={
                                    **self._LowResNet_kwargs, 'I': self.cluster_handler.get_indicator_matrix()},
-                               HighResNet_kwargs={**self._HighResNet_kwargs, 'A': adj_mx})
+                               HighResNet_kwargs={**self._HighResNet_kwargs,
+                                                  'A': adj_mx,
+                                                  #   'A': adj_mx * (I.T@I)
+
+                                                  })
 
         # optimizer setting
         self.example_input_array = torch.rand(
             hparams['DATA']['batch_size'], input_dim, adj_mx.size(0), hparams['DATA']['seq_len'])
 
+        self.best_score = {'mae': np.inf, 'rmse': np.inf,
+                           'mape': np.inf, 'combine': np.inf}
+
         self.save_hyperparameters('hparams')
 
     def on_train_start(self):
         self.monitor_metric_name = self._metric_kwargs['monitor_metric_name']
+        loss_metric = self._metric_kwargs['loss_metric']
         self.training_metric_name = self._metric_kwargs['training_metric_name']
         self.logger.log_hyperparams(
-            self.hparams.hparams, {
-                f'{self.monitor_metric_name}/mae': 0})
+            self.hparams.hparams, {f'{self.monitor_metric_name}/{loss_metric}': 0, f'best/{loss_metric}': 0})
         for cluster in range(self.cluster_handler.num_clusters):
             self.logger.experiment.add_scalar(f'{self.training_metric_name}/sensors_per_each_clusters', float(
                 (self.cluster_handler.label == cluster).sum()), float(cluster))
@@ -67,8 +75,12 @@ class Supervisor(pl.LightningModule):
             np.save(f, self.cluster_handler.label)
 
     def forward(self, x):
-        y, _ = self.model(x, self.pred_horizon)
+        y = self.model(x, self.pred_horizon)
         return y
+
+    def predict_rolling_horizon(self, x, horizon):
+        y = self.model(x, horizon)
+        return self.standard_scaler.inverse_transform(y)
 
     def validation_step(self, batch, idx):
         x, y = batch
@@ -84,8 +96,20 @@ class Supervisor(pl.LightningModule):
         for metric in loss:
             self.log_dict(
                 {f'{self._metric_kwargs["monitor_metric_name"]}/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
+
+            if loss[metric] <= self.best_score[metric]:
+                self.best_score[metric] = loss[metric]
+                self.log_dict(
+                    {f'best/{metric}': loss[metric], "step": float(self.current_epoch)}, prog_bar=True)
+
+        combine_loss = torch.tensor([loss[metric] for metric in loss]).sum()
+
         self.log_dict({f'{self._metric_kwargs["monitor_metric_name"]}/combine':
-                       torch.tensor([loss[metric] for metric in loss]).sum(), "step": float(self.current_epoch)}, prog_bar=True)
+                       combine_loss, "step": float(self.current_epoch)}, prog_bar=True)
+        if combine_loss <= self.best_score['combine']:
+            self.best_score['combine'] = combine_loss
+            self.log_dict({f'best/combine':
+                           combine_loss, "step": float(self.current_epoch)}, prog_bar=True)
 
     def update_teachers(self, x_last, answer, stage):
         # update lowresnet teacher
@@ -134,6 +158,11 @@ class Supervisor(pl.LightningModule):
             self._optim_kwargs['low_resol_loss_weight'] * loss_agg
         return loss
 
+    def predict_step(self, batch, idx):
+        x, y = batch
+        pred = self.forward(x)
+        return {'pred': self.standard_scaler.inverse_transform(pred), 'true': self.standard_scaler.inverse_transform(y)}
+
     def test_step(self, batch, idx):
         x, y = batch
         pred = self.forward(x)
@@ -144,15 +173,16 @@ class Supervisor(pl.LightningModule):
                           for output in outputs], dim=const.BATCH_DIM)
         pred = torch.cat([output['pred']
                           for output in outputs], dim=const.BATCH_DIM)
-        loss = self._compute_all_loss(true, pred, agg_dim=(
-            const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM))
+        self.calculate_loss_and_print_result(true, pred, scale=True)
+        # loss = self._compute_all_loss(true, pred, agg_dim=(
+        #     const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM))
 
-        # error for each horizon
-        self.pred_results = pred.cpu()
-        self.true_values = true.cpu()
-        self.test_loss = {metric: loss[metric].cpu() for metric in loss}
-        self.agg_losses = self._compute_all_loss(
-            self.true_values, self.pred_results)
+        # # error for each horizon
+        # self.pred_results = pred.cpu()
+        # self.true_values = true.cpu()
+        # self.test_loss = {metric: loss[metric].cpu() for metric in loss}
+        # self.agg_losses = self._compute_all_loss(
+        #     self.true_values, self.pred_results)
 
     def print_test_result(self):
         for h in range(len(self.test_loss["mae"])):
@@ -170,6 +200,24 @@ class Supervisor(pl.LightningModule):
         print(f"MAE: {self.agg_losses['mae']:.2f}", end=", ")
         print(f"RMSE: {self.agg_losses['rmse']:.2f}", end=", ")
         print(f"MAPE: {self.agg_losses['mape']:.2f}")
+
+    def calculate_loss_and_print_result(self, true, pred, scale=False):
+        loss = self._compute_all_loss(true, pred, agg_dim=(
+            const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM), scale=scale)
+        loss_dict = {metric: loss[metric].cpu() for metric in loss}
+        for h in range(len(loss_dict["mae"])):
+            print(f"Horizon {h+1} ({5*(h+1)} min) - ", end="")
+            print(f"MAE: {loss_dict['mae'][h]:.2f}", end=", ")
+            print(f"RMSE: {loss_dict['rmse'][h]:.2f}", end=", ")
+            print(f"MAPE: {loss_dict['mape'][h]:.2f}")
+
+        agg_losses = self._compute_all_loss(
+            true, pred, scale=scale)
+        # aggregated error
+        print("Aggregation - ", end="")
+        print(f"MAE: {agg_losses['mae']:.2f}", end=", ")
+        print(f"RMSE: {agg_losses['rmse']:.2f}", end=", ")
+        print(f"MAPE: {agg_losses['mape']:.2f}")
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(
@@ -209,14 +257,16 @@ class Supervisor(pl.LightningModule):
                 break
         return epoch-1
 
-    def _compute_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM)):
-        y_predicted = self.standard_scaler.inverse_transform(y_predicted)
-        y_true = self.standard_scaler.inverse_transform(y_true)
+    def _compute_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM), scale=True):
+        if scale:
+            y_predicted = self.standard_scaler.inverse_transform(y_predicted)
+            y_true = self.standard_scaler.inverse_transform(y_true)
         return masked_MAE(y_predicted, y_true, agg_dim=agg_dim)
 
-    def _compute_all_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM)):
-        y_predicted = self.standard_scaler.inverse_transform(y_predicted)
-        y_true = self.standard_scaler.inverse_transform(y_true)
+    def _compute_all_loss(self, y_true, y_predicted, agg_dim=(const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM, const.TEMPORAL_DIM), scale=True):
+        if scale:
+            y_predicted = self.standard_scaler.inverse_transform(y_predicted)
+            y_true = self.standard_scaler.inverse_transform(y_true)
         return {'mae': masked_MAE(y_predicted, y_true, agg_dim=agg_dim),
                 'rmse': masked_RMSE(y_predicted, y_true, agg_dim=agg_dim),
                 'mape': masked_MAPE(y_predicted, y_true, agg_dim=agg_dim)}
