@@ -17,7 +17,7 @@ This is a [PyTorch lightning](https://www.pytorchlightning.ai) implementation of
 #### 1.1.1. Create a conda environment
 
 ```bash
-conda env create -n tworesnet -f environment.yaml
+conda env create -n tworesnet -f environment.yml
 ```
 
 #### 1.1.2. Activate the environment
