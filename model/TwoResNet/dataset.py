@@ -1,12 +1,10 @@
 import torch
-import torch.nn.functional as F
 import os
 from pytorch_lightning import LightningDataModule
 import numpy as np
 from lib import utils
 import pandas as pd
 from torch.utils.data import DataLoader, Subset
-from geopy.distance import geodesic
 
 
 def encode_features(df, scaler):
@@ -141,25 +139,12 @@ class DataModule(LightningDataModule):
             distance_km = pd.read_csv(
                 f'{utils.PROJECT_ROOT}/data/distance_{self.dataset}.csv')
 
-            # name_dict = {'la': 'METR-LA', 'bay': 'PEMS-BAY'}
-            # meta_df = pd.read_csv(
-            # f'{utils.PROJECT_ROOT}/data/{name_dict[self.dataset]}-META.csv', index_col=0)
-            # coords = meta_df[['Latitude', 'Longitude']].values
-            # distance_km = pd.DataFrame([[geodesic(a, b).km for a in coords]
-            #                             for b in coords], index=meta_df.index, columns=meta_df.index)
-
-            corr = pd.read_csv(
-                f'{utils.PROJECT_ROOT}/data/corr_inv_{self.dataset}.csv', index_col=0)
             if override is not None:
-                # mix_similarity = utils.get_mix_similarity(
-                #     corr, distance_km, **override)
                 mix_similarity = utils.get_mix_similarity(
                     train_df, distance_km, **override)
             else:
                 mix_similarity = utils.get_mix_similarity(
                     train_df, distance_km, **self.adj_info)
-                # mix_similarity = utils.get_mix_similarity(
-                #     corr, distance_km, **self.adj_info)
 
             cluster = utils.clustering(
                 mix_similarity, **self.cluster_info)
@@ -171,7 +156,6 @@ class DataModule(LightningDataModule):
                                             columns=['index'])
                 return_value.index = return_value.index.astype('int')
 
-            # if self.cluster_info['K'] > 1:
             sensors = train_df.columns.astype(int)
             self.adj = mix_similarity.loc[sensors, sensors].values
 
