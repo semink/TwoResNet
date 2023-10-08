@@ -10,43 +10,25 @@ This is a [PyTorch lightning](https://www.pytorchlightning.ai) implementation of
 
 ## 1. Installing dependencies
 
-### 1.1. Using conda
-
-> **_NOTE:_** [Anaconda](https://docs.anaconda.com/anaconda/install/index.html) should be installed in the system.
-
-#### 1.1.1. Create a conda environment
-
-```bash
-conda env create -n tworesnet -f environment.yml
-```
-
-#### 1.1.2. Activate the environment
-
-```bash
-conda activate tworesnet
-```
-
-### 1.2. Using pip
-
-#### 1.2.1. Create a venv environment
+### 1.1. Create a venv environment
 
 ```bash
 python3 -m venv env
 ```
 
-#### 1.2.2. Activate pip environment
+### 1.2. Activate pip environment
 
 ```bash
 source env/bin/activate
 ```
 
-#### 1.2.3. Install dependencies
+### 1.3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 1.3. Install PyTorch
+### 1.4. Install PyTorch
 
 In case error occurs, try to install PyTorch according to your local environment following the description [here](https://pytorch.org/).
 
