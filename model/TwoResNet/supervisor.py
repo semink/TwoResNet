@@ -84,7 +84,7 @@ class Supervisor(pl.LightningModule):
 
     def validation_step(self, batch, idx):
         x, y = batch
-        pred = self.forward(x)
+        pred, _ = self.forward(x)
         return {'true': y, 'pred': pred}
 
     def validation_epoch_end(self, outputs):
@@ -160,30 +160,30 @@ class Supervisor(pl.LightningModule):
 
     def predict_step(self, batch, idx):
         x, y = batch
-        pred = self.forward(x)
+        pred, _ = self.forward(x)
         return {'pred': self.standard_scaler.inverse_transform(pred), 'true': self.standard_scaler.inverse_transform(y)}
 
     def test_step(self, batch, idx):
         x, y = batch
-        pred = self.forward(x)
-        return {'true': y, 'pred': pred}
+        pred, pred_agg = self.forward(x)
+        return {'true': y, 'pred': pred, 'pred_agg': pred_agg}
 
     def test_epoch_end(self, outputs):
         true = torch.cat([output['true']
                           for output in outputs], dim=const.BATCH_DIM)
         pred = torch.cat([output['pred']
                           for output in outputs], dim=const.BATCH_DIM)
+        pred_agg = torch.cat([output['pred_agg']
+                          for output in outputs], dim=const.BATCH_DIM)
         self.calculate_loss_and_print_result(true, pred, scale=True)
-        # loss = self._compute_all_loss(true, pred, agg_dim=(
-        #     const.BATCH_DIM, const.FEAT_DIM, const.SPATIAL_DIM))
-
-        # # error for each horizon
-        # self.pred_results = pred.cpu()
-        # self.true_values = true.cpu()
-        # self.test_loss = {metric: loss[metric].cpu() for metric in loss}
-        # self.agg_losses = self._compute_all_loss(
-        #     self.true_values, self.pred_results)
-
+        
+        self.print_low_high_portion(pred, pred_agg)
+    def print_low_high_portion(self, pred, pred_agg):
+        pred_scaled = self.standard_scaler.inverse_transform(pred)
+        pred_agg_scaled = self.standard_scaler.inverse_transform(pred_agg)
+        low_portion = (pred_agg_scaled - pred_scaled).abs().mean(dim=(const.BATCH_DIM, const.SPATIAL_DIM)) / pred_agg_scaled.abs().mean(dim=(const.BATCH_DIM, const.SPATIAL_DIM))
+        print(f"High/Low: {low_portion}")
+    
     def print_test_result(self):
         for h in range(len(self.test_loss["mae"])):
             print(f"Horizon {h+1} ({5*(h+1)} min) - ", end="")
